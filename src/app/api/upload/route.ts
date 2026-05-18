@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
+import { assetPath } from '@/lib/paths';
+import { requireAdmin } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
     try {
+        const { response } = await requireAdmin();
+        if (response) return response;
+
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
 
@@ -27,7 +32,7 @@ export async function POST(request: NextRequest) {
         const path = join(uploadDir, filename);
         await writeFile(path, buffer);
 
-        return NextResponse.json({ url: `/uploads/${filename}` });
+        return NextResponse.json({ url: assetPath(`/uploads/${filename}`) });
     } catch (error) {
         console.error('Upload error:', error);
         return NextResponse.json({ error: 'Failed to upload image' }, { status: 500 });

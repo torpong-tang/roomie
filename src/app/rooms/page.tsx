@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Upload, Plus, Users, Trash2, Edit2, X } from 'lucide-react';
+import { apiPath, assetPath } from '@/lib/paths';
 
 interface Room {
     id: string;
@@ -31,7 +32,7 @@ export default function RoomsPage() {
     }, []);
 
     const fetchRooms = async () => {
-        const res = await fetch('/api/rooms');
+        const res = await fetch(apiPath('/api/rooms'));
         const data = await res.json();
         setRooms(data);
     };
@@ -53,7 +54,7 @@ export default function RoomsPage() {
             if (image) {
                 const formData = new FormData();
                 formData.append('file', image);
-                const uploadRes = await fetch('/api/upload', {
+                const uploadRes = await fetch(apiPath('/api/upload'), {
                     method: 'POST',
                     body: formData,
                 });
@@ -61,7 +62,7 @@ export default function RoomsPage() {
                 imageUrl = uploadData.url;
             }
 
-            const res = await fetch('/api/rooms', {
+            const res = await fetch(apiPath('/api/rooms'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -93,7 +94,7 @@ export default function RoomsPage() {
         setLoading(true);
 
         try {
-            const res = await fetch(`/api/rooms/${editingRoom.id}`, {
+            const res = await fetch(apiPath(`/api/rooms/${editingRoom.id}`), {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -118,7 +119,7 @@ export default function RoomsPage() {
         if (!confirm('Are you sure you want to delete this room?')) return;
 
         try {
-            const res = await fetch(`/api/rooms/${id}`, {
+            const res = await fetch(apiPath(`/api/rooms/${id}`), {
                 method: 'DELETE',
             });
             if (res.ok) {
@@ -211,7 +212,7 @@ export default function RoomsPage() {
                     <div key={room.id} className="glass-card overflow-hidden flex flex-col group relative">
                         <div className="h-48 relative">
                             {room.image ? (
-                                <img src={room.image} alt={room.name} className="w-full h-full object-cover" />
+                                <img src={assetPath(room.image)} alt={room.name} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full bg-white/10 flex items-center justify-center">
                                     <Upload className="w-12 h-12 text-white/20" />

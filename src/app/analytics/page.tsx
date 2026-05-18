@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
 import { BarChart3, TrendingUp, Calendar as CalendarIcon, Users, ArrowLeft, Download } from 'lucide-react';
 import Link from 'next/link';
+import { apiPath } from '@/lib/paths';
 
 interface Room {
     id: string;
@@ -35,8 +36,8 @@ export default function AnalyticsPage() {
     const fetchData = async () => {
         try {
             const [roomsRes, bookingsRes] = await Promise.all([
-                fetch('/api/rooms'),
-                fetch('/api/bookings')
+                fetch(apiPath('/api/rooms')),
+                fetch(apiPath('/api/bookings'))
             ]);
             const roomsData = await roomsRes.json();
             const bookingsData = await bookingsRes.json();

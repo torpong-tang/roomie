@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const Database = require('better-sqlite3');
-const db = new Database('/home/hulky/projects/appstart/dev.db');
+const db = new Database('/home/johnson/projects/roomie/dev.db');
 
 try {
     const rooms = db.prepare('SELECT * FROM Room').all();

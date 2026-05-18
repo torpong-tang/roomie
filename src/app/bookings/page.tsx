@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Search, Download, ArrowLeft, Calendar as CalendarIcon, User, DoorOpen, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { apiPath } from '@/lib/paths';
 
 interface Room {
     id: string;
@@ -33,7 +34,7 @@ export default function BookingsListPage() {
 
     const fetchData = async () => {
         try {
-            const res = await fetch('/api/bookings');
+            const res = await fetch(apiPath('/api/bookings'));
             const data = await res.json();
             setBookings(data);
         } catch (err) {
@@ -85,7 +86,7 @@ export default function BookingsListPage() {
 
         if (!confirm('Are you sure you want to cancel this booking?')) return;
         try {
-            const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' });
+            const res = await fetch(apiPath(`/api/bookings/${id}`), { method: 'DELETE' });
             if (res.ok) fetchData();
         } catch (err) {
             alert('Error cancelling booking');

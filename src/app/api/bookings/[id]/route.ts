@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { requireBooker } from '@/lib/auth';
 
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { response } = await requireBooker();
+        if (response) return response;
+
         const { id } = await params;
 
         // Check if booking exists

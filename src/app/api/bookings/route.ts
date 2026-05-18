@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { requireBooker } from '@/lib/auth';
 
 export async function GET() {
     try {
@@ -20,6 +21,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
+        const { response } = await requireBooker();
+        if (response) return response;
+
         const body = await request.json();
         const { roomId, title, startTime, endTime, user, repeatType = 'none', repeatCount = 1 } = body;
 

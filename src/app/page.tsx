@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, Clock, User, DoorOpen, Plus, Trash2, Eye } from 'lucide-react';
+import { apiPath, assetPath } from '@/lib/paths';
 
 interface Room {
   id: string;
@@ -51,8 +52,8 @@ export default function CalendarPage() {
 
   const fetchData = async () => {
     const [roomsRes, bookingsRes] = await Promise.all([
-      fetch('/api/rooms'),
-      fetch('/api/bookings')
+      fetch(apiPath('/api/rooms')),
+      fetch(apiPath('/api/bookings'))
     ]);
     const roomsData = await roomsRes.json();
     const bookingsData = await bookingsRes.json();
@@ -130,7 +131,7 @@ export default function CalendarPage() {
     }
 
     try {
-      const res = await fetch('/api/bookings', {
+      const res = await fetch(apiPath('/api/bookings'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -169,7 +170,7 @@ export default function CalendarPage() {
     if (!confirm('Are you sure you want to cancel this booking?')) return;
 
     try {
-      const res = await fetch(`/api/bookings/${booking.id}`, {
+      const res = await fetch(apiPath(`/api/bookings/${booking.id}`), {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -293,7 +294,7 @@ export default function CalendarPage() {
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-lg overflow-hidden border border-white/10 shrink-0">
                     {roomData.image ? (
-                      <img src={roomData.image} alt={roomData.name} className="w-full h-full object-cover" />
+                      <img src={assetPath(roomData.image)} alt={roomData.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full bg-white/5 flex items-center justify-center">
                         <DoorOpen className="w-5 h-5 text-white/20" />
@@ -391,7 +392,7 @@ export default function CalendarPage() {
               {roomId && selectedRoomData?.image && (
                 <div className="w-full h-32 rounded-xl overflow-hidden mb-4 border border-white/10 shadow-inner group">
                   <img
-                    src={selectedRoomData.image}
+                    src={assetPath(selectedRoomData.image)}
                     alt={selectedRoomData.name}
                     className="w-full h-full object-cover grayscale-[0.3] group-hover:grayscale-0 transition-all duration-500"
                   />
