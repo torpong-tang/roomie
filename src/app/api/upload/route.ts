@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
+import { randomUUID } from 'crypto';
 import { assetPath } from '@/lib/paths';
 import { requireAdmin } from '@/lib/auth';
+
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES: Record<string, string> = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'image/gif': '.gif',
+};
 
 export async function POST(request: NextRequest) {
     try {
@@ -16,19 +25,28 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
         }
 
+        const extension = ALLOWED_IMAGE_TYPES[file.type];
+        if (!extension) {
+            return NextResponse.json({ error: 'Only JPG, PNG, WebP, and GIF images are allowed' }, { status: 400 });
+        }
+
+        if (file.size > MAX_UPLOAD_BYTES) {
+            return NextResponse.json({ error: 'Image must be 5 MB or smaller' }, { status: 400 });
+        }
+
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
         const uploadDir = join(process.cwd(), 'public', 'uploads');
 
-        // Ensure the directory exists
-        try {
-            await mkdir(uploadDir, { recursive: true });
-        } catch (err) {
-            // Ignore if directory already exists
-        }
+        await mkdir(uploadDir, { recursive: true });
 
-        const filename = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
+        const safeBaseName = file.name
+            .replace(/\.[^/.]+$/, '')
+            .replace(/[^a-zA-Z0-9-_]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 48) || 'room-image';
+        const filename = `${Date.now()}-${safeBaseName}-${randomUUID()}${extension}`;
         const path = join(uploadDir, filename);
         await writeFile(path, buffer);
 

@@ -5,7 +5,6 @@ import prisma from '@/lib/prisma';
 
 export const AUTH_COOKIE = 'roomie_session';
 export const COOKIE_PATH = '/roomie';
-export const DEFAULT_ACCESS_CODE = 'roomie';
 export const USER_ROLES = ['readonly', 'user', 'admin'] as const;
 export type UserRole = typeof USER_ROLES[number];
 
@@ -14,7 +13,24 @@ export type AuthUser = {
     role: UserRole;
 };
 
-const getSecret = () => process.env.ROOMIE_AUTH_SECRET || process.env.ADMIN_SESSION_SECRET || 'roomie-local-dev-secret';
+const isProduction = () => process.env.NODE_ENV === 'production';
+
+const requireProductionSecret = (name: string, value?: string) => {
+    const trimmed = value?.trim();
+    if (!trimmed && isProduction()) {
+        throw new Error(`${name} must be set in production`);
+    }
+    return trimmed;
+};
+
+export const getAccessCode = () =>
+    requireProductionSecret('ROOMIE_ACCESS_CODE', process.env.ROOMIE_ACCESS_CODE) || 'roomie';
+
+const getSecret = () =>
+    requireProductionSecret(
+        'ROOMIE_AUTH_SECRET',
+        process.env.ROOMIE_AUTH_SECRET || process.env.ADMIN_SESSION_SECRET
+    ) || 'roomie-local-dev-secret';
 
 const toBase64Url = (value: string | Buffer) =>
     Buffer.from(value).toString('base64url');

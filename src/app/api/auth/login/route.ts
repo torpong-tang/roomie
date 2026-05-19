@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { DEFAULT_ACCESS_CODE, normalizeEmail, setAuthCookie } from '@/lib/auth';
+import { getAccessCode, normalizeEmail, setAuthCookie } from '@/lib/auth';
 
 export async function POST(request: Request) {
     const body = await request.json();
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Email and access code are required' }, { status: 400 });
     }
 
-    if (accessCode !== (process.env.ROOMIE_ACCESS_CODE || DEFAULT_ACCESS_CODE)) {
+    if (accessCode !== getAccessCode()) {
         return NextResponse.json({ error: 'Access code is incorrect' }, { status: 401 });
     }
 

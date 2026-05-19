@@ -1,10 +1,9 @@
 'use client';
 
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { Eye, EyeOff, X } from 'lucide-react';
 import { apiPath } from '@/lib/paths';
 
-const ACCESS_CODE = 'roomie';
 const REDIRECT_URL = 'https://2startup.cloud/';
 
 type AccessGateProps = {
@@ -15,6 +14,7 @@ export function AccessGate({ children }: AccessGateProps) {
     const [status, setStatus] = useState<'checking' | 'allowed' | 'blocked'>('checking');
     const [email, setEmail] = useState('');
     const [accessCode, setAccessCode] = useState('');
+    const [isAccessCodeVisible, setIsAccessCodeVisible] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -45,7 +45,7 @@ export function AccessGate({ children }: AccessGateProps) {
         const normalizedEmail = email.trim();
         const normalizedCode = accessCode.trim();
         if (!normalizedEmail || !normalizedCode) {
-            redirectAway();
+            setError('Please enter both email and access code.');
             return;
         }
 
@@ -116,18 +116,29 @@ export function AccessGate({ children }: AccessGateProps) {
                     <label className="mb-2 block text-sm font-medium text-white/80" htmlFor="roomie-access-code">
                         Access code
                     </label>
-                    <input
-                        id="roomie-access-code"
-                        type="text"
-                        value={accessCode}
-                        onChange={(event) => {
-                            setAccessCode(event.target.value);
-                            setError('');
-                        }}
-                        className="glass-input w-full rounded-lg p-3 outline-hidden"
-                        autoComplete="off"
-                        placeholder={ACCESS_CODE}
-                    />
+                    <div className="relative">
+                        <input
+                            id="roomie-access-code"
+                            type={isAccessCodeVisible ? 'text' : 'password'}
+                            value={accessCode}
+                            onChange={(event) => {
+                                setAccessCode(event.target.value);
+                                setError('');
+                            }}
+                            className="glass-input w-full rounded-lg p-3 pr-12 outline-hidden"
+                            autoComplete="off"
+                            placeholder="Enter access code"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setIsAccessCodeVisible((value) => !value)}
+                            className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-white/55 transition hover:bg-white/10 hover:text-white"
+                            aria-label={isAccessCodeVisible ? 'Hide access code' : 'Show access code'}
+                            title={isAccessCodeVisible ? 'Hide access code' : 'Show access code'}
+                        >
+                            {isAccessCodeVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                    </div>
                     {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
 
                     <div className="mt-6 grid grid-cols-2 gap-3">

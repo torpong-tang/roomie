@@ -6,7 +6,11 @@
     "dev": "next dev -H 0.0.0.0 -p 3002",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3002",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "db:seed-users": "node scripts/seed-app-users.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.17.0",
@@ -17,7 +21,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.563.0",
-    "next": "16.1.6",
+    "next": "16.2.6",
     "prisma": "^6.4.1",
     "react": "19.2.3",
     "react-day-picker": "^9.13.0",
