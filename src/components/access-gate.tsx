@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
-import { Eye, EyeOff, X } from 'lucide-react';
+import { Eye, EyeOff, Home } from 'lucide-react';
 import { apiPath } from '@/lib/paths';
 
 const REDIRECT_URL = 'https://2startup.cloud/';
@@ -80,20 +80,21 @@ export function AccessGate({ children }: AccessGateProps) {
     return (
         <div className="min-h-screen bg-slate-950 text-white">
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 px-4 backdrop-blur-md">
+                <button
+                    type="button"
+                    onClick={redirectAway}
+                    className="fixed right-5 top-5 z-[110] inline-flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/80 bg-sky-500 text-white shadow-2xl shadow-black/40 transition hover:scale-105 hover:bg-sky-400 focus:outline-none focus:ring-4 focus:ring-sky-300"
+                    aria-label="Return to 2Startup Cloud"
+                    title="Back to 2Startup Cloud"
+                >
+                    <Home className="h-6 w-6 fill-white" aria-hidden="true" />
+                </button>
                 <form onSubmit={handleSubmit} className="glass-card w-full max-w-sm p-6 shadow-2xl">
-                    <div className="mb-5 flex items-start justify-between gap-4">
+                    <div className="mb-5">
                         <div>
                             <h1 className="text-xl font-bold text-white">Roomie Access</h1>
                             <p className="mt-1 text-sm text-white/50">Enter an approved email and access code.</p>
                         </div>
-                        <button
-                            type="button"
-                            onClick={redirectAway}
-                            className="rounded-lg p-2 text-white/50 transition hover:bg-white/10 hover:text-white"
-                            aria-label="Close"
-                        >
-                            <X className="h-5 w-5" />
-                        </button>
                     </div>
 
                     <label className="mb-2 block text-sm font-medium text-white/80" htmlFor="roomie-email">
