@@ -20,7 +20,7 @@ body {
   background-attachment: fixed;
   color: var(--foreground);
   min-height: 100vh;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Prompt', system-ui, -apple-system, sans-serif;
 }
 
 .glass {

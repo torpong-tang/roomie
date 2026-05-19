@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Prompt } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
 import { Calendar, LayoutDashboard, PlusCircle, BarChart3, ShieldCheck } from "lucide-react";
@@ -7,7 +7,10 @@ import { assetPath } from "@/lib/paths";
 import { AccessGate } from "@/components/access-gate";
 import { LogoutButton } from "@/components/logout-button";
 
-const inter = Inter({ subsets: ["latin"] });
+const prompt = Prompt({
+  subsets: ["latin", "thai"],
+  weight: ["300", "400", "500", "600", "700"],
+});
 
 export const metadata: Metadata = {
   title: "Meeting Room Booking",
@@ -21,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={prompt.className} suppressHydrationWarning>
         <AccessGate>
           <div className="min-h-screen flex flex-col">
             <header className="glass sticky top-0 z-50 px-6 py-4 flex items-center justify-between mx-4 mt-4 rounded-2xl">
@@ -58,6 +61,9 @@ export default function RootLayout({
             <main className="flex-1 p-6">
               {children}
             </main>
+            <footer className="px-6 pb-6 text-center text-sm font-medium text-slate-400">
+              © 2026 TPT Team • Version 1.0
+            </footer>
           </div>
         </AccessGate>
       </body>
