@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin, requireUser } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        const { user, response } = await requireUser();
+        if (response) return response;
+        const requestedPlaceId = new URL(request.url).searchParams.get('placeId') || undefined;
+        const placeId = user?.role === 'admin' ? requestedPlaceId : user?.placeId;
         const rooms = await prisma.room.findMany({
+            where: placeId ? { placeId } : user?.role === 'admin' ? undefined : { placeId: null },
             include: {
                 bookings: true,
+                place: { select: { id: true, key: true } },
             },
             orderBy: {
                 createdAt: 'desc',
@@ -25,10 +31,10 @@ export async function POST(request: Request) {
         if (response) return response;
 
         const body = await request.json();
-        const { name, capacity, description, image } = body;
+        const { name, capacity, description, image, placeId } = body;
 
-        if (!name || !capacity) {
-            return NextResponse.json({ error: 'Name and capacity are required' }, { status: 400 });
+        if (!name || !capacity || !placeId) {
+            return NextResponse.json({ error: 'Place, name and capacity are required' }, { status: 400 });
         }
 
         const room = await prisma.room.create({
@@ -37,6 +43,7 @@ export async function POST(request: Request) {
                 capacity: parseInt(capacity),
                 description,
                 image,
+                placeId,
             },
         });
 

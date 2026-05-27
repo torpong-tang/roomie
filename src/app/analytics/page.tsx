@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
 import { BarChart3, TrendingUp, Calendar as CalendarIcon, Users, ArrowLeft, Download } from 'lucide-react';
 import Link from 'next/link';
 import { apiPath } from '@/lib/paths';
+import { useFeedback } from '@/components/feedback-provider';
 
 interface Room {
     id: string;
@@ -23,32 +24,36 @@ interface Booking {
 }
 
 export default function AnalyticsPage() {
+    const { showAlert, withLoading } = useFeedback();
     const [mounted, setMounted] = useState(false);
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [rooms, setRooms] = useState<Room[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        setMounted(true);
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
-            const [roomsRes, bookingsRes] = await Promise.all([
-                fetch(apiPath('/api/rooms')),
-                fetch(apiPath('/api/bookings'))
-            ]);
-            const roomsData = await roomsRes.json();
-            const bookingsData = await bookingsRes.json();
-            setRooms(roomsData);
-            setBookings(bookingsData);
-        } catch (err) {
-            console.error(err);
+            await withLoading('Loading analytics...', async () => {
+                const [roomsRes, bookingsRes] = await Promise.all([
+                    fetch(apiPath('/api/rooms')),
+                    fetch(apiPath('/api/bookings'))
+                ]);
+                if (!roomsRes.ok || !bookingsRes.ok) throw new Error('Unable to load analytics.');
+                const roomsData = await roomsRes.json();
+                const bookingsData = await bookingsRes.json();
+                setRooms(roomsData);
+                setBookings(bookingsData);
+            });
+        } catch {
+            await showAlert({ tone: 'error', title: 'Unable to load analytics', message: 'Insights could not be loaded at this time.' });
         } finally {
             setLoading(false);
         }
-    };
+    }, [showAlert, withLoading]);
+
+    useEffect(() => {
+        setMounted(true);
+        void fetchData();
+    }, [fetchData]);
 
     if (!mounted) return null;
 
@@ -86,7 +91,7 @@ export default function AnalyticsPage() {
         <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-700">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Link href="/" className="p-2 glass-button rounded-full text-white/60 hover:text-white">
+                    <Link href="/" className="glass-button button-violet rounded-full p-2 text-white">
                         <ArrowLeft className="w-5 h-5" />
                     </Link>
                     <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">

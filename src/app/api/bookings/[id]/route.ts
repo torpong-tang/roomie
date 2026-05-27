@@ -7,7 +7,7 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { response } = await requireBooker();
+        const { user, response } = await requireBooker();
         if (response) return response;
 
         const { id } = await params;
@@ -19,6 +19,12 @@ export async function DELETE(
 
         if (!booking) {
             return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+        }
+        if (user?.role === 'place') {
+            const room = await prisma.room.findUnique({ where: { id: booking.roomId } });
+            if (!room || room.placeId !== user.placeId) {
+                return NextResponse.json({ error: 'This booking is not available for your place' }, { status: 403 });
+            }
         }
 
         await prisma.booking.delete({

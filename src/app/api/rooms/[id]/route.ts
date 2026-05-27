@@ -12,7 +12,7 @@ export async function PATCH(
 
         const { id } = await params;
         const body = await request.json();
-        const { name, capacity, description, image } = body;
+        const { name, capacity, description, image, placeId } = body;
 
         const room = await prisma.room.update({
             where: { id },
@@ -21,6 +21,7 @@ export async function PATCH(
                 capacity: capacity ? parseInt(capacity) : undefined,
                 description,
                 image,
+                placeId,
             },
         });
 

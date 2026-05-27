@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { requireBooker } from '@/lib/auth';
+import { requireBooker, requireUser } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        const { user, response } = await requireUser();
+        if (response) return response;
+        const requestedPlaceId = new URL(request.url).searchParams.get('placeId') || undefined;
+        const placeId = user?.role === 'admin' ? requestedPlaceId : user?.placeId;
         const bookings = await prisma.booking.findMany({
+            where: placeId ? { room: { placeId } } : user?.role === 'admin' ? undefined : { room: { placeId: null } },
             include: {
-                room: true,
+                room: { include: { place: { select: { id: true, key: true } } } },
             },
             orderBy: {
                 startTime: 'asc',
@@ -21,14 +26,19 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
-        const { response } = await requireBooker();
+        const { user: currentUser, response } = await requireBooker();
         if (response) return response;
 
         const body = await request.json();
-        const { roomId, title, startTime, endTime, user, repeatType = 'none', repeatCount = 1 } = body;
+        const { roomId, title, startTime, endTime, user, contact, repeatType = 'none', repeatCount = 1 } = body;
 
         if (!roomId || !title || !startTime || !endTime || !user) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        }
+
+        const room = await prisma.room.findUnique({ where: { id: roomId } });
+        if (!room || (currentUser?.role === 'place' && room.placeId !== currentUser.placeId)) {
+            return NextResponse.json({ error: 'This room is not available for your place' }, { status: 403 });
         }
 
         const bookingDates: { start: Date, end: Date }[] = [];
@@ -85,6 +95,7 @@ export async function POST(request: Request) {
                         startTime: dates.start,
                         endTime: dates.end,
                         user,
+                        contact: String(contact || '').trim() || null,
                     },
                 })
             )

@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
@@ -7,10 +7,13 @@ export const AUTH_COOKIE = 'roomie_session';
 export const COOKIE_PATH = '/roomie';
 export const USER_ROLES = ['readonly', 'user', 'admin'] as const;
 export type UserRole = typeof USER_ROLES[number];
+export type SessionRole = UserRole | 'place';
 
 export type AuthUser = {
     email: string;
-    role: UserRole;
+    role: SessionRole;
+    placeId?: string;
+    placeName?: string;
 };
 
 const isProduction = () => process.env.NODE_ENV === 'production';
@@ -42,6 +45,21 @@ const sign = (payload: string) =>
     createHmac('sha256', getSecret()).update(payload).digest('base64url');
 
 export const normalizeEmail = (email: string) => email.trim().toLowerCase();
+export const normalizePlaceKey = (key: string) => key.trim().toLowerCase();
+
+export const hashAccessCode = (accessCode: string) => {
+    const salt = randomBytes(16).toString('hex');
+    const hash = scryptSync(accessCode, salt, 32).toString('hex');
+    return `${salt}:${hash}`;
+};
+
+export const verifyAccessCode = (accessCode: string, storedHash: string) => {
+    const [salt, hash] = storedHash.split(':');
+    if (!salt || !hash) return false;
+    const expected = Buffer.from(hash, 'hex');
+    const received = scryptSync(accessCode, salt, 32);
+    return received.length === expected.length && timingSafeEqual(received, expected);
+};
 
 export const createSessionValue = (user: AuthUser) => {
     const payload = toBase64Url(JSON.stringify(user));
@@ -61,10 +79,13 @@ export const readSessionValue = (value?: string): AuthUser | null => {
 
     try {
         const parsed = JSON.parse(fromBase64Url(payload));
-        if (typeof parsed.email !== 'string' || !USER_ROLES.includes(parsed.role)) return null;
+        if (typeof parsed.email !== 'string' || ![...USER_ROLES, 'place'].includes(parsed.role)) return null;
+        if (parsed.role === 'place' && typeof parsed.placeId !== 'string') return null;
         return {
             email: normalizeEmail(parsed.email),
             role: parsed.role,
+            placeId: parsed.placeId,
+            placeName: parsed.placeName,
         };
     } catch {
         return null;
@@ -76,9 +97,18 @@ export const getCurrentUser = async () => {
     const sessionUser = readSessionValue(cookieStore.get(AUTH_COOKIE)?.value);
     if (!sessionUser) return null;
 
-    const user = await prisma.appUser.findUnique({
-        where: { email: sessionUser.email },
-    });
+    if (sessionUser.role === 'place' && sessionUser.placeId) {
+        const place = await prisma.place.findUnique({ where: { id: sessionUser.placeId } });
+        if (!place || !place.isActive) return null;
+        return {
+            email: place.key,
+            role: 'place' as const,
+            placeId: place.id,
+            placeName: place.key,
+        };
+    }
+
+    const user = await prisma.appUser.findUnique({ where: { email: sessionUser.email } });
     if (!user || !user.isActive) return null;
 
     return {

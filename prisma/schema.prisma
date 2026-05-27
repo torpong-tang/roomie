@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -14,9 +14,13 @@ model Room {
   capacity    Int
   description String?
   image       String?
+  placeId     String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   bookings    Booking[]
+  place       Place?    @relation(fields: [placeId], references: [id], onDelete: SetNull)
+
+  @@index([placeId])
 }
 
 model Booking {
@@ -26,9 +30,20 @@ model Booking {
   startTime DateTime
   endTime   DateTime
   user      String
+  contact   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+}
+
+model Place {
+  id             String   @id @default(cuid())
+  key            String   @unique
+  accessCodeHash String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  rooms          Room[]
 }
 
 model AppUser {

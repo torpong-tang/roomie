@@ -1,8 +1,9 @@
 'use client';
 
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
-import { Eye, EyeOff, Home } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Home, X } from 'lucide-react';
 import { apiPath } from '@/lib/paths';
+import { useFeedback } from '@/components/feedback-provider';
 
 const REDIRECT_URL = 'https://2startup.cloud/';
 
@@ -11,6 +12,7 @@ type AccessGateProps = {
 };
 
 export function AccessGate({ children }: AccessGateProps) {
+    const { showAlert, withLoading } = useFeedback();
     const [status, setStatus] = useState<'checking' | 'allowed' | 'blocked'>('checking');
     const [email, setEmail] = useState('');
     const [accessCode, setAccessCode] = useState('');
@@ -21,19 +23,20 @@ export function AccessGate({ children }: AccessGateProps) {
     useEffect(() => {
         let isCancelled = false;
 
-        fetch(apiPath('/api/auth/me'))
-            .then((response) => response.json())
-            .then((data) => {
+        void withLoading('Loading Roomie...', async () => {
+            try {
+                const response = await fetch(apiPath('/api/auth/me'));
+                const data = await response.json();
                 if (!isCancelled) setStatus(data.user ? 'allowed' : 'blocked');
-            })
-            .catch(() => {
+            } catch {
                 if (!isCancelled) setStatus('blocked');
-            });
+            }
+        });
 
         return () => {
             isCancelled = true;
         };
-    }, []);
+    }, [withLoading]);
 
     const redirectAway = () => {
         window.location.replace(REDIRECT_URL);
@@ -45,27 +48,32 @@ export function AccessGate({ children }: AccessGateProps) {
         const normalizedEmail = email.trim();
         const normalizedCode = accessCode.trim();
         if (!normalizedEmail || !normalizedCode) {
-            setError('Please enter both email and access code.');
+            setError('Please enter both place/email and access code.');
+            await showAlert({ tone: 'error', title: 'Missing information', message: 'Please enter both place/email and access code.' });
             return;
         }
 
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(apiPath('/api/auth/login'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: normalizedEmail, accessCode: normalizedCode }),
+            await withLoading('Checking access...', async () => {
+                const response = await fetch(apiPath('/api/auth/login'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: normalizedEmail, accessCode: normalizedCode }),
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Unable to sign in.');
+                }
+                setStatus('allowed');
             });
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.error || 'Unable to sign in.');
-                setAccessCode('');
-                return;
-            }
-            setStatus('allowed');
-        } catch {
-            setError('Unable to sign in.');
+        } catch (caughtError) {
+            const message = caughtError instanceof Error ? caughtError.message : 'The access request could not be completed. Please try again.';
+            setError(message);
+            setAccessCode('');
+            setLoading(false);
+            await showAlert({ tone: 'error', title: 'Access denied', message });
         } finally {
             setLoading(false);
         }
@@ -93,12 +101,12 @@ export function AccessGate({ children }: AccessGateProps) {
                     <div className="mb-5">
                         <div>
                             <h1 className="text-xl font-bold text-white">Roomie Access</h1>
-                            <p className="mt-1 text-sm text-white/50">Enter an approved email and access code.</p>
+                            <p className="mt-1 text-sm text-white/50">Enter your place and access code.</p>
                         </div>
                     </div>
 
                     <label className="mb-2 block text-sm font-medium text-white/80" htmlFor="roomie-email">
-                        Email
+                        Place / Email
                     </label>
                     <input
                         id="roomie-email"
@@ -111,11 +119,12 @@ export function AccessGate({ children }: AccessGateProps) {
                         }}
                         className="glass-input mb-4 w-full rounded-lg p-3 outline-hidden"
                         autoComplete="email"
+                        placeholder="Place of meeting room"
                         autoFocus
                     />
 
                     <label className="mb-2 block text-sm font-medium text-white/80" htmlFor="roomie-access-code">
-                        Access code
+                        Access Code
                     </label>
                     <div className="relative">
                         <input
@@ -146,11 +155,13 @@ export function AccessGate({ children }: AccessGateProps) {
                         <button
                             type="button"
                             onClick={redirectAway}
-                            className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm font-bold text-white/60 transition hover:bg-white/10 hover:text-white"
+                            className="glass-button button-neutral flex items-center justify-center gap-2 rounded-xl p-3 text-sm font-bold"
                         >
+                            <X className="h-4 w-4" />
                             Cancel
                         </button>
-                        <button type="submit" disabled={loading} className="glass-button rounded-xl p-3 text-sm font-bold disabled:opacity-60">
+                        <button type="submit" disabled={loading} className="glass-button button-primary flex items-center justify-center gap-2 rounded-xl p-3 text-sm font-bold disabled:opacity-60">
+                            <ArrowRight className="h-4 w-4" />
                             {loading ? 'Checking...' : 'Continue'}
                         </button>
                     </div>

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "driver.js/dist/driver.css";
 
 :root {
   --background: #0f172a; /* Deep Navy Background */
@@ -58,7 +59,8 @@ body {
 }
 
 .glass-button {
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+  --button-shadow: rgba(59, 130, 246, 0.36);
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
   border: none;
   font-weight: 600;
   color: white;
@@ -68,11 +70,184 @@ body {
 .glass-button:hover {
   filter: brightness(1.1);
   transform: translateY(-1px);
-  box-shadow: 0 8px 20px -4px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 8px 20px -4px var(--button-shadow);
 }
 
 .glass-button:active {
   transform: translateY(0);
+}
+
+.glass-button.button-primary {
+  --button-shadow: rgba(56, 189, 248, 0.42);
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+}
+
+.glass-button.button-success {
+  --button-shadow: rgba(16, 185, 129, 0.42);
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.glass-button.button-warning {
+  --button-shadow: rgba(245, 158, 11, 0.44);
+  background: linear-gradient(135deg, #fbbf24, #f97316);
+  color: #111827;
+}
+
+.glass-button.button-violet {
+  --button-shadow: rgba(168, 85, 247, 0.4);
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+}
+
+.glass-button.button-danger {
+  --button-shadow: rgba(244, 63, 94, 0.4);
+  background: linear-gradient(135deg, #f43f5e, #dc2626);
+}
+
+.glass-button.button-neutral {
+  --button-shadow: rgba(148, 163, 184, 0.22);
+  background: linear-gradient(135deg, rgba(100, 116, 139, 0.85), rgba(51, 65, 85, 0.95));
+}
+
+.driver-popover.roomie-tour {
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - 2rem));
+  max-width: 360px;
+  padding: 0;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 16px;
+  background: #18253c;
+  color: #f8fafc;
+  box-shadow: 0 24px 70px rgba(2, 6, 23, 0.65), 0 0 26px rgba(14, 165, 233, 0.14);
+  overflow: hidden;
+}
+
+.driver-popover.roomie-tour * {
+  font-family: inherit;
+}
+
+.roomie-tour .driver-popover-title {
+  display: block;
+  padding: 1.15rem 3rem 0 1.15rem;
+  color: #f8fafc;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.roomie-tour .driver-popover-close-btn {
+  top: 0.75rem;
+  right: 0.7rem;
+  display: grid;
+  height: 2rem;
+  width: 2rem;
+  place-items: center;
+  border-radius: 0.6rem;
+  background: rgba(244, 63, 94, 0.14);
+  color: #fda4af;
+  font-weight: 600;
+}
+
+.roomie-tour .driver-popover-close-btn:hover,
+.roomie-tour .driver-popover-close-btn:focus {
+  color: #f8fafc;
+  background: rgba(244, 63, 94, 0.26);
+}
+
+.roomie-tour .driver-popover-description {
+  padding: 0.75rem 1.15rem 1.05rem;
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.roomie-tour .driver-popover-footer {
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0 1.15rem 1.15rem;
+  text-align: right;
+}
+
+.roomie-tour .driver-popover-progress-text {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.roomie-tour .driver-popover-footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  justify-content: center;
+  margin: 0;
+  border: 0;
+  border-radius: 0.65rem;
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.65rem 1.15rem;
+  text-shadow: none;
+  box-shadow: 0 8px 18px rgba(14, 165, 233, 0.2);
+}
+
+.roomie-tour .driver-popover-footer button:not(:disabled):hover,
+.roomie-tour .driver-popover-footer button:not(:disabled):focus {
+  background: linear-gradient(135deg, #38bdf8, #3b82f6);
+  color: #fff;
+}
+
+.roomie-tour .driver-popover-footer .driver-popover-prev-btn {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.82), rgba(99, 102, 241, 0.92));
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(99, 102, 241, 0.2);
+}
+
+.roomie-tour .driver-popover-footer .driver-popover-prev-btn:not(:disabled):hover,
+.roomie-tour .driver-popover-footer .driver-popover-prev-btn:not(:disabled):focus {
+  background: linear-gradient(135deg, #a78bfa, #6366f1);
+  color: #fff;
+}
+
+.roomie-tour .driver-popover-prev-btn::before {
+  content: "\2190";
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.roomie-tour .driver-popover-next-btn::after {
+  content: "\2192";
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.roomie-tour .driver-popover-next-btn.tour-finish-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  box-shadow: 0 8px 18px rgba(16, 185, 129, 0.24);
+}
+
+.roomie-tour .driver-popover-next-btn.tour-finish-btn:hover,
+.roomie-tour .driver-popover-next-btn.tour-finish-btn:focus {
+  background: linear-gradient(135deg, #34d399, #059669);
+}
+
+.roomie-tour .driver-popover-next-btn.tour-finish-btn::after {
+  content: "\2713";
+}
+
+.roomie-tour .driver-popover-arrow-side-left {
+  border-color: transparent transparent transparent #18253c;
+}
+
+.roomie-tour .driver-popover-arrow-side-right {
+  border-color: transparent #18253c transparent transparent;
+}
+
+.roomie-tour .driver-popover-arrow-side-top {
+  border-color: #18253c transparent transparent transparent;
+}
+
+.roomie-tour .driver-popover-arrow-side-bottom {
+  border-color: transparent transparent #18253c transparent;
 }
 
 /* Day Item specific contrast */

@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Search, Download, ArrowLeft, Calendar as CalendarIcon, User, DoorOpen, Trash2 } from 'lucide-react';
+import { Search, Download, ArrowLeft, User, DoorOpen, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { apiPath } from '@/lib/paths';
+import { useFeedback } from '@/components/feedback-provider';
 
 interface Room {
     id: string;
     name: string;
+    place?: { key: string } | null;
 }
 
 interface Booking {
@@ -18,44 +20,53 @@ interface Booking {
     startTime: string;
     endTime: string;
     user: string;
+    contact?: string | null;
     room: Room;
 }
 
 export default function BookingsListPage() {
+    const { showAlert, showConfirm, withLoading } = useFeedback();
     const [mounted, setMounted] = useState(false);
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        setMounted(true);
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
-            const res = await fetch(apiPath('/api/bookings'));
-            const data = await res.json();
-            setBookings(data);
-        } catch (err) {
-            console.error(err);
+            await withLoading('Loading booking history...', async () => {
+                const res = await fetch(apiPath('/api/bookings'));
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Unable to load bookings.');
+                setBookings(data);
+            });
+        } catch {
+            await showAlert({ tone: 'error', title: 'Unable to load history', message: 'Booking history could not be loaded.' });
         } finally {
             setLoading(false);
         }
-    };
+    }, [showAlert, withLoading]);
+
+    useEffect(() => {
+        setMounted(true);
+        void fetchData();
+    }, [fetchData]);
 
     const filteredBookings = bookings.filter(b =>
         b.title.toLowerCase().includes(search.toLowerCase()) ||
         b.user.toLowerCase().includes(search.toLowerCase()) ||
-        b.room?.name.toLowerCase().includes(search.toLowerCase())
+        b.room?.name.toLowerCase().includes(search.toLowerCase()) ||
+        (b.room?.place?.key || '').toLowerCase().includes(search.toLowerCase()) ||
+        (b.contact || '').toLowerCase().includes(search.toLowerCase())
     );
 
     const exportToCSV = () => {
-        const headers = ['Title', 'Room', 'User', 'Start Time', 'End Time'];
+        const headers = ['Title', 'Place', 'Room', 'Booked By', 'Contact', 'Start Time', 'End Time'];
         const rows = filteredBookings.map(b => [
             b.title,
+            b.room?.place?.key || '',
             b.room?.name || 'Unknown',
             b.user,
+            b.contact || '',
             format(new Date(b.startTime), 'yyyy-MM-dd HH:mm'),
             format(new Date(b.endTime), 'yyyy-MM-dd HH:mm')
         ]);
@@ -80,16 +91,30 @@ export default function BookingsListPage() {
         // Only allow canceling future bookings
         const booking = bookings.find(b => b.id === id);
         if (booking && new Date(booking.startTime) < new Date()) {
-            alert('Cannot cancel past bookings');
+            await showAlert({ tone: 'error', title: 'Cannot cancel booking', message: 'Past bookings cannot be cancelled.' });
             return;
         }
 
-        if (!confirm('Are you sure you want to cancel this booking?')) return;
+        const confirmed = await showConfirm({
+            title: 'Cancel this booking?',
+            message: `This will remove "${booking?.title || 'this booking'}" from booking history.`,
+            confirmLabel: 'Cancel Booking',
+            tone: 'danger',
+        });
+        if (!confirmed) return;
         try {
-            const res = await fetch(apiPath(`/api/bookings/${id}`), { method: 'DELETE' });
-            if (res.ok) fetchData();
-        } catch (err) {
-            alert('Error cancelling booking');
+            await withLoading('Cancelling booking...', async () => {
+                const res = await fetch(apiPath(`/api/bookings/${id}`), { method: 'DELETE' });
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || 'Unable to cancel booking.');
+                }
+                const reload = await fetch(apiPath('/api/bookings'));
+                if (reload.ok) setBookings(await reload.json());
+            });
+            await showAlert({ tone: 'success', title: 'Booking cancelled', message: 'The booking was cancelled successfully.' });
+        } catch (caughtError) {
+            await showAlert({ tone: 'error', title: 'Cancellation failed', message: caughtError instanceof Error ? caughtError.message : 'Error cancelling booking.' });
         }
     };
 
@@ -99,7 +124,7 @@ export default function BookingsListPage() {
         <div className="max-w-6xl mx-auto space-y-6 animate-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <Link href="/" className="p-2 glass-button rounded-full text-white/60 hover:text-white">
+                    <Link href="/" className="glass-button button-violet rounded-full p-2 text-white">
                         <ArrowLeft className="w-5 h-5" />
                     </Link>
                     <h1 className="text-3xl font-bold text-white tracking-tight">Booking History</h1>
@@ -110,7 +135,7 @@ export default function BookingsListPage() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                         <input
                             type="text"
-                            placeholder="Search title, room, user..."
+                            placeholder="Search title, place, room, user..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="glass-input pl-10 pr-4 py-2 rounded-xl text-sm w-full md:w-64 outline-none"
@@ -118,7 +143,7 @@ export default function BookingsListPage() {
                     </div>
                     <button
                         onClick={exportToCSV}
-                        className="glass-button px-4 py-2 rounded-xl text-white text-sm font-bold flex items-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/30"
+                        className="glass-button button-success flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white"
                     >
                         <Download className="w-4 h-4" />
                         Export CSV
@@ -132,8 +157,8 @@ export default function BookingsListPage() {
                         <thead>
                             <tr className="bg-white/5 border-b border-white/10 uppercase text-[10px] tracking-widest text-white/40">
                                 <th className="px-6 py-4 font-bold">Meeting Info</th>
-                                <th className="px-6 py-4 font-bold">Room</th>
-                                <th className="px-6 py-4 font-bold">User</th>
+                                <th className="px-6 py-4 font-bold">Place / Room</th>
+                                <th className="px-6 py-4 font-bold">Booked By / Contact</th>
                                 <th className="px-6 py-4 font-bold">Date & Time</th>
                                 <th className="px-6 py-4 font-bold text-right">Actions</th>
                             </tr>
@@ -147,13 +172,13 @@ export default function BookingsListPage() {
                                     <td className="px-6 py-4 text-white/60">
                                         <div className="flex items-center gap-2">
                                             <DoorOpen className="w-4 h-4 text-blue-400/60" />
-                                            {booking.room?.name}
+                                            <span>{booking.room?.place?.key || 'Unassigned'} / {booking.room?.name}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2 text-white/60 text-sm">
                                             <User className="w-4 h-4" />
-                                            {booking.user}
+                                            <span>{booking.user}{booking.contact ? ` / ${booking.contact}` : ''}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
@@ -167,6 +192,7 @@ export default function BookingsListPage() {
                                     <td className="px-6 py-4 text-right">
                                         {new Date(booking.startTime) >= new Date() ? (
                                             <button
+                                                title="Cancel booking"
                                                 onClick={() => handleCancelBooking(booking.id)}
                                                 className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
                                             >
