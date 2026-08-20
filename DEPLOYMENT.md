@@ -6,7 +6,9 @@ frontends pass end-to-end booking, cancellation, admin and upload tests.
 
 ## 1. Required infrastructure
 
-1. Create DNS `A` record `api-roomie.2startup.cloud` pointing to the VPS.
+1. Use the existing TLS gateway `https://2startup.cloud/roomie/api/*` for the pilot.
+   A dedicated API hostname is optional and must not be enabled before its DNS and
+   certificate are ready.
 2. Create a dedicated PostgreSQL database and login:
 
 ```bash
@@ -82,9 +84,8 @@ curl --fail --silent http://127.0.0.1:3102/api/health
 
 ## 6. Nginx routing
 
-The API virtual host proxies only to `127.0.0.1:3102` and receives its own TLS
-certificate. The existing `2startup.cloud` server must place this location before the
-general `/roomie/` location:
+The existing `2startup.cloud` server proxies only to `127.0.0.1:3102`. Place this
+location before the general `/roomie/` location:
 
 ```nginx
 location ^~ /roomie/api/ {
@@ -93,6 +94,7 @@ location ^~ /roomie/api/ {
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 }
 ```

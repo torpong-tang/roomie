@@ -6,12 +6,12 @@
 GitHub: torpong-tang/roomie
           |
           +-- Vercel frontend: roomie.vercel.app
-          |      `-- /api/* rewrite --------------------+
+          |      `-- /api/* rewrite to ------------------+
           |                                              |
           +-- Hostinger frontend: 2startup.cloud/roomie  |
-                 `-- Nginx /roomie/api/* proxy ----------+
-                                                        v
-                                  api-roomie.2startup.cloud
+                 `-- Nginx /roomie/api/* ----------------+
+                                             |
+                                      roomie-api:3102
                                              |
                               +--------------+--------------+
                               |                             |
@@ -24,8 +24,10 @@ The browser uses a same-origin `/api/*` URL on both frontends. Vercel rewrites a
 Nginx proxies those requests to the dedicated VPS API. This avoids third-party-cookie
 failures and lets authenticated room images render through the same origin.
 
-Direct calls to `api-roomie.2startup.cloud` remain possible for controlled clients.
-They are protected by the exact `ROOMIE_CORS_ORIGINS` allowlist.
+The pilot deliberately reuses the existing `2startup.cloud` TLS certificate and
+publishes no database port. A dedicated `api-roomie.2startup.cloud` hostname may be
+added later, after its DNS and certificate are provisioned. Direct API access remains
+protected by the exact `ROOMIE_CORS_ORIGINS` allowlist.
 
 ## Deployment profiles
 
