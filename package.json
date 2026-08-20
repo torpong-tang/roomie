@@ -5,6 +5,13 @@
   "engines": {
     "node": "22.x"
   },
+  "allowScripts": {
+    "@prisma/client@6.4.1": true,
+    "@prisma/engines@6.4.1": true,
+    "esbuild@0.27.2": true,
+    "prisma@6.4.1": true,
+    "unrs-resolver@1.11.1": true
+  },
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3002",
     "build": "prisma generate && next build",
