@@ -52,7 +52,7 @@ docker compose -f docker-compose.dev.yml up -d
 | Script | Purpose |
 | --- | --- |
 | `npm run dev` | Development server on port 3002 |
-| `npm run build` / `npm start` | Standalone production build and server |
+| `npm run build` / `npm start` | Full-stack build normally; frontend-only build when Vercel sets `VERCEL=1` |
 | `npm run db:migrate` | `prisma migrate deploy` |
 | `npm run db:seed-users` | Upsert the administrator accounts listed in `scripts/seed-app-users.mjs` |
 | `npm run db:check` | Print connection details and a summary of the data |

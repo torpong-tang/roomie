@@ -112,6 +112,27 @@ Connect `torpong-tang/roomie` to one Vercel project and set only the variables i
 `.env.vercel.example`. Git integration should deploy automatically. Do not add
 production database or auth secrets to the frontend project.
 
+`npm run build` detects `VERCEL=1`, excludes the VPS-only Next API routes from the
+frontend artifact, uses root path `/`, and rewrites `/api/*` to
+`https://2startup.cloud/roomie` by default. The two public environment variables in
+`.env.vercel.example` remain recommended because they make the deployment intent
+explicit and allow the API gateway to be changed without a source-code release.
+
+Do not connect this repository to duplicate Vercel projects. If both `roomie` and
+`roombooking` exist, keep the project whose production domain is
+`roomie.vercel.app` after it passes the release gate, then disconnect the duplicate
+from Git only after confirming that it serves no production traffic.
+
+If Vercel reports Prisma errors while collecting API route data, verify that the
+deployment uses the latest commit and that the build log contains:
+
+```text
+Building Roomie frontend-only deployment for Vercel.
+```
+
+The Vercel project must not define `DATABASE_URL`, `DIRECT_URL`,
+`ROOMIE_AUTH_SECRET`, `ROOMIE_ACCESS_CODE`, or upload-storage credentials.
+
 ## 8. Release gate
 
 Before directing users to the pilot, verify:

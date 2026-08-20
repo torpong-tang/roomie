@@ -39,7 +39,11 @@ protected by the exact `ROOMIE_CORS_ORIGINS` allowlist.
 | VPS API | root (`/`) | direct API process | production only |
 
 `NEXT_PUBLIC_BASE_PATH` must be `/roomie` for Hostinger and `/` for root deployments.
-Leaving it undefined intentionally preserves the legacy `/roomie` default.
+Leaving it undefined preserves the legacy `/roomie` default outside Vercel. Vercel's
+platform-provided `VERCEL=1` selects root path automatically and also makes the build
+frontend-only: `src/app/api` is excluded from the deployment artifact, while
+`/api/*` is rewritten to the VPS gateway. This keeps Prisma and all database code on
+the VPS trust boundary.
 
 ## Database isolation
 
