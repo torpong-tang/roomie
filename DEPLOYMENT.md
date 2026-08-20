@@ -32,7 +32,7 @@ Use separate working directories because root-path and `/roomie` builds have dif
 artifacts:
 
 ```text
-/var/www/apps/roomie-web  -> PM2 roomie      -> 127.0.0.1:3002
+/var/www/apps/roomie      -> PM2 roomie      -> 127.0.0.1:3002
 /var/www/apps/roomie-api  -> PM2 roomie-api  -> 127.0.0.1:3102
 ```
 
@@ -141,10 +141,10 @@ The Vercel frontend build must succeed even when package install scripts are dis
 it does not require a generated Prisma client. Prisma generation and standalone
 packaging remain mandatory for the VPS full-stack/API build.
 
-Do not connect this repository to duplicate Vercel projects. If both `roomie` and
-`roombooking` exist, keep the project whose production domain is
-`roomie.vercel.app` after it passes the release gate, then disconnect the duplicate
-from Git only after confirming that it serves no production traffic.
+Do not connect this repository to duplicate Vercel projects. Keep the project whose
+production domain is `roomie-iota-beryl.vercel.app` after it passes the release gate,
+then disconnect any duplicate from Git only after confirming that it serves no
+production traffic.
 
 If Vercel reports Prisma errors while collecting API route data, verify that the
 deployment uses the latest commit and that the build log contains:
