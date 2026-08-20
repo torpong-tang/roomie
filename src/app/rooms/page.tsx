@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { Building2, DoorOpen, Edit2, Plus, Save, Trash2, Upload, Users, X } from 'lucide-react';
-import { apiPath, assetPath } from '@/lib/paths';
+import { apiFetch, assetPath } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
 import { useSession } from '@/components/session-provider';
 import { useTranslation } from '@/components/translation-provider';
@@ -39,7 +39,7 @@ export default function RoomsPage() {
     const [editPlaceId, setEditPlaceId] = useState('');
 
     const fetchRooms = async () => {
-        const response = await fetch(apiPath('/api/rooms'));
+        const response = await apiFetch('/api/rooms');
         const data = await response.json();
         if (response.ok) setRooms(data);
     };
@@ -49,7 +49,7 @@ export default function RoomsPage() {
         const load = async () => {
             try {
                 await withLoading(t('rooms.loading'), async () => {
-                    const [placesResponse] = await Promise.all([fetch(apiPath('/api/places')), fetchRooms()]);
+                    const [placesResponse] = await Promise.all([apiFetch('/api/places'), fetchRooms()]);
                     const placesData = await placesResponse.json();
                     if (!placesResponse.ok) throw new Error(t('access.loadPlacesFail'));
                     setPlaces(placesData);
@@ -74,7 +74,7 @@ export default function RoomsPage() {
         if (!image) return '';
         const formData = new FormData();
         formData.append('file', image);
-        const response = await fetch(apiPath('/api/upload'), { method: 'POST', body: formData });
+        const response = await apiFetch('/api/upload', { method: 'POST', body: formData });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || t('rooms.uploadFailMessage'));
         return data.url as string;
@@ -87,7 +87,7 @@ export default function RoomsPage() {
         try {
             await withLoading(t('rooms.creatingRoom'), async () => {
                 const imageUrl = await uploadImage();
-                const response = await fetch(apiPath('/api/rooms'), {
+                const response = await apiFetch('/api/rooms', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, capacity: Number(capacity), description, image: imageUrl, placeId }),
@@ -129,7 +129,7 @@ export default function RoomsPage() {
         setError('');
         try {
             await withLoading(t('rooms.updatingRoom'), async () => {
-                const response = await fetch(apiPath(`/api/rooms/${editingRoom.id}`), {
+                const response = await apiFetch(`/api/rooms/${editingRoom.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: editName, capacity: Number(editCapacity), description: editDescription, placeId: editPlaceId }),
@@ -161,7 +161,7 @@ export default function RoomsPage() {
         if (!confirmed) return;
         try {
             await withLoading(t('rooms.deletingRoom'), async () => {
-                const response = await fetch(apiPath(`/api/rooms/${room.id}`), { method: 'DELETE' });
+                const response = await apiFetch(`/api/rooms/${room.id}`, { method: 'DELETE' });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || t('rooms.deleteFailMessage'));
                 await fetchRooms();

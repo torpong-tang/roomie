@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Building2 } from 'lucide-react';
-import { apiPath } from '@/lib/paths';
+import { apiFetch } from '@/lib/paths';
 import { useSession } from '@/components/session-provider';
 import { useTranslation } from '@/components/translation-provider';
 
@@ -28,7 +28,7 @@ export function usePlaceScope() {
         let cancelled = false;
         const load = async () => {
             try {
-                const response = await fetch(apiPath('/api/places'));
+                const response = await apiFetch('/api/places');
                 const data: Place[] = response.ok ? await response.json() : [];
                 if (cancelled) return;
                 setPlaces(data);

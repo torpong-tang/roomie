@@ -1,7 +1,7 @@
 'use client';
 
 import { LogOut } from 'lucide-react';
-import { apiPath } from '@/lib/paths';
+import { apiFetch, appPath } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
 import { useTranslation } from '@/components/translation-provider';
 
@@ -20,11 +20,11 @@ export function LogoutButton() {
 
         try {
             await withLoading(t('logout.signingOut'), async () => {
-                const response = await fetch(apiPath('/api/auth/logout'), { method: 'POST' });
+                const response = await apiFetch('/api/auth/logout', { method: 'POST' });
                 if (!response.ok) throw new Error('Unable to log out.');
             });
             await showAlert({ tone: 'success', title: t('logout.successTitle'), message: t('logout.successMessage') });
-            window.location.href = apiPath('/');
+            window.location.href = appPath('/');
         } catch {
             await showAlert({ tone: 'error', title: t('logout.failTitle'), message: t('logout.failMessage') });
         }

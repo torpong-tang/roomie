@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Building2, Eye, EyeOff, KeyRound, Plus, ShieldCheck, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
-import { apiPath } from '@/lib/paths';
+import { apiFetch } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
 import { useTranslation } from '@/components/translation-provider';
 
@@ -43,8 +43,8 @@ export default function AdminUsersPage() {
     const fetchAccessData = useCallback(async (showSpinner = true) => {
         const load = async () => {
             const [userResponse, placeResponse] = await Promise.all([
-                fetch(apiPath('/api/admin/users')),
-                fetch(apiPath('/api/admin/places')),
+                apiFetch('/api/admin/users'),
+                apiFetch('/api/admin/places'),
             ]);
             const usersData = await parseResponse(userResponse, t('access.loadUsersFail'));
             const placesData = await parseResponse(placeResponse, t('access.loadPlacesFail'));
@@ -83,7 +83,7 @@ export default function AdminUsersPage() {
         event.preventDefault();
         try {
             await withLoading(t('access.addingUser'), async () => {
-                const response = await fetch(apiPath('/api/admin/users'), {
+                const response = await apiFetch('/api/admin/users', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email }),
@@ -105,7 +105,7 @@ export default function AdminUsersPage() {
         event.preventDefault();
         try {
             await withLoading(t('access.addingPlace'), async () => {
-                const response = await fetch(apiPath('/api/admin/places'), {
+                const response = await apiFetch('/api/admin/places', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ key: placeKey, accessCode: placeCode, viewCode: placeViewCode }),
@@ -128,7 +128,7 @@ export default function AdminUsersPage() {
     const updateUser = async (user: AppUser, isActive: boolean) => {
         try {
             await withLoading(t('access.updatingUser'), async () => {
-                const response = await fetch(apiPath(`/api/admin/users/${user.id}`), {
+                const response = await apiFetch(`/api/admin/users/${user.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ isActive }),
@@ -148,7 +148,7 @@ export default function AdminUsersPage() {
     const updatePlace = async (place: Place, changes: { isActive?: boolean; accessCode?: string; viewCode?: string | null }) => {
         try {
             await withLoading(t('access.updatingPlace'), async () => {
-                const response = await fetch(apiPath(`/api/admin/places/${place.id}`), {
+                const response = await apiFetch(`/api/admin/places/${place.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(changes),
@@ -195,7 +195,7 @@ export default function AdminUsersPage() {
         if (!confirmed) return;
         try {
             await withLoading(t('access.removingUser'), async () => {
-                const response = await fetch(apiPath(`/api/admin/users/${user.id}`), { method: 'DELETE' });
+                const response = await apiFetch(`/api/admin/users/${user.id}`, { method: 'DELETE' });
                 const data = await parseResponse(response, t('access.userRemoveFailMessage'));
                 if (!response.ok) throw new Error(data.error || t('access.userRemoveFailMessage'));
                 await fetchAccessData(false);

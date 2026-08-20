@@ -2,7 +2,7 @@
 
 import { FormEvent, ReactNode, useState } from 'react';
 import { ArrowRight, CalendarCheck, Eye, EyeOff, Home, ShieldCheck, Users, X } from 'lucide-react';
-import { apiPath, assetPath } from '@/lib/paths';
+import { apiFetch, assetPath } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
 import { useSession } from '@/components/session-provider';
 import { useTranslation } from '@/components/translation-provider';
@@ -42,7 +42,7 @@ export function AccessGate({ children }: AccessGateProps) {
         setError('');
         try {
             await withLoading(t('login.checking'), async () => {
-                const response = await fetch(apiPath('/api/auth/login'), {
+                const response = await apiFetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: normalizedEmail, accessCode: normalizedCode }),

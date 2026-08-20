@@ -4,7 +4,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Search, Download, ArrowLeft, User, DoorOpen, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { apiPath } from '@/lib/paths';
+import { apiFetch } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
 import { PlaceSelect, usePlaceScope } from '@/components/place-scope';
 import { useSession } from '@/components/session-provider';
@@ -41,7 +41,7 @@ export default function BookingsListPage() {
 
     const loadBookings = useCallback(async () => {
         const suffix = placeId ? `?placeId=${encodeURIComponent(placeId)}` : '';
-        const res = await fetch(`${apiPath('/api/bookings')}${suffix}`);
+        const res = await apiFetch(`/api/bookings${suffix}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || t('history.loadFailMessage'));
         setBookings(data);
@@ -118,7 +118,7 @@ export default function BookingsListPage() {
         if (!confirmed) return;
         try {
             await withLoading(t('calendar.cancelling'), async () => {
-                const res = await fetch(apiPath(`/api/bookings/${id}`), { method: 'DELETE' });
+                const res = await apiFetch(`/api/bookings/${id}`, { method: 'DELETE' });
                 if (!res.ok) {
                     const data = await res.json();
                     throw new Error(data.error || t('history.cancelError'));

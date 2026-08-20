@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.supabase.example
+!.env.local.example
+!.env.hostinger.example
+!.env.vercel.example
+!.env.api.example
 
 # runtime data (uploaded room images) - see ROOMIE_UPLOAD_DIR
 /var/

@@ -4,7 +4,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { isSameMonth } from 'date-fns';
 import { BarChart3, TrendingUp, Calendar as CalendarIcon, Users, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { apiPath } from '@/lib/paths';
+import { apiFetch } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
 import { PlaceSelect, usePlaceScope } from '@/components/place-scope';
 import { useSession } from '@/components/session-provider';
@@ -42,8 +42,8 @@ export default function AnalyticsPage() {
             await withLoading(t('insights.loading'), async () => {
                 const suffix = placeId ? `?placeId=${encodeURIComponent(placeId)}` : '';
                 const [roomsRes, bookingsRes] = await Promise.all([
-                    fetch(`${apiPath('/api/rooms')}${suffix}`),
-                    fetch(`${apiPath('/api/bookings')}${suffix}`)
+                    apiFetch(`/api/rooms${suffix}`),
+                    apiFetch(`/api/bookings${suffix}`)
                 ]);
                 if (!roomsRes.ok || !bookingsRes.ok) throw new Error(t('insights.loadFailMessage'));
                 const roomsData = await roomsRes.json();

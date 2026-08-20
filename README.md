@@ -1,7 +1,15 @@
 # Roomie
 
-Meeting room booking for multiple places (branches), built with Next.js 16, Prisma and PostgreSQL (Supabase).
-The app is served under the `/roomie` base path on port 3002.
+Meeting room booking for multiple places (branches), built with Next.js 16, Prisma and PostgreSQL.
+The same repository supports three deployment profiles:
+
+- local/full-stack at `http://localhost:3002/roomie`
+- Hostinger frontend at `https://2startup.cloud/roomie`
+- Vercel frontend at `https://roomie.vercel.app`
+
+The two production frontends use the same dedicated API, PostgreSQL database and
+persistent upload directory. See `ARCHITECTURE.md` and `DEPLOYMENT.md` before changing
+production infrastructure.
 
 ## Access model
 
@@ -25,11 +33,18 @@ them regardless of what the browser sends.
 
 ```bash
 npm install
-cp .env.supabase.example .env    # then fill in the real values
+cp .env.local.example .env       # then fill in local-only values
 npm run db:generate              # generate the Prisma client
 npm run db:migrate               # apply migrations
 npm run db:seed-users            # create the first administrator
 npm run dev                      # http://localhost:3002/roomie
+```
+
+To run an isolated local PostgreSQL container first:
+
+```bash
+export ROOMIE_DB_PASSWORD='<LOCAL-ONLY-PASSWORD>'
+docker compose -f docker-compose.dev.yml up -d
 ```
 
 ## Scripts
@@ -52,9 +67,17 @@ npm run dev                      # http://localhost:3002/roomie
   concurrent requests.
 - **AppUser** — an administrator account.
 
+Each environment must use its own PostgreSQL database. Local development must never
+connect to the production database.
+
 ## Uploads
 
 Room images are written to `ROOMIE_UPLOAD_DIR` (default `./var/uploads`) and served by
 the authenticated `/api/uploads/<filename>` route. They must not live under `public/`:
 the `postbuild` step deletes and re-copies `public/` into the standalone output, which
 would erase every image uploaded since the last build.
+
+## Health check
+
+`GET /api/health` verifies that the API process and PostgreSQL connection are ready.
+It does not expose credentials or application records.

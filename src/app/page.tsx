@@ -3,7 +3,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, subMonths, addMonths, getDay } from 'date-fns';
 import { Building2, ChevronLeft, ChevronRight, Clock, User, DoorOpen, Plus, Trash2, Eye, Phone, Save, X } from 'lucide-react';
-import { apiPath, assetPath } from '@/lib/paths';
+import { apiFetch, assetPath } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
 import { PlaceSelect, usePlaceScope } from '@/components/place-scope';
 import { useSession } from '@/components/session-provider';
@@ -60,8 +60,8 @@ export default function CalendarPage() {
     const load = async () => {
       const suffix = placeId ? `?placeId=${encodeURIComponent(placeId)}` : '';
       const [roomsRes, bookingsRes] = await Promise.all([
-        fetch(`${apiPath('/api/rooms')}${suffix}`),
-        fetch(`${apiPath('/api/bookings')}${suffix}`)
+        apiFetch(`/api/rooms${suffix}`),
+        apiFetch(`/api/bookings${suffix}`)
       ]);
       if (!roomsRes.ok || !bookingsRes.ok) throw new Error(t('calendar.loadFailMessage'));
       const roomsData = await roomsRes.json();
@@ -171,7 +171,7 @@ export default function CalendarPage() {
 
     try {
       await withLoading(t('calendar.saving'), async () => {
-        const res = await fetch(apiPath('/api/bookings'), {
+        const res = await apiFetch('/api/bookings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -221,7 +221,7 @@ export default function CalendarPage() {
 
     try {
       await withLoading(t('calendar.cancelling'), async () => {
-        const res = await fetch(apiPath(`/api/bookings/${booking.id}`), {
+        const res = await apiFetch(`/api/bookings/${booking.id}`, {
           method: 'DELETE'
         });
         if (!res.ok) {

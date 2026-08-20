@@ -2,10 +2,24 @@ import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { basePath } from '@/lib/paths';
 
 export const AUTH_COOKIE = 'roomie_session';
-export const COOKIE_PATH = '/roomie';
 export const SESSION_TTL_SECONDS = 60 * 60 * 12;
+
+type CookieSameSite = 'lax' | 'strict' | 'none';
+
+const cookiePath = () => {
+    const configured = process.env.ROOMIE_COOKIE_PATH?.trim();
+    if (configured) return configured.startsWith('/') ? configured : `/${configured}`;
+    return basePath || '/';
+};
+
+const cookieSameSite = (): CookieSameSite => {
+    const configured = process.env.ROOMIE_COOKIE_SAME_SITE?.trim().toLowerCase();
+    if (configured === 'strict' || configured === 'none') return configured;
+    return 'lax';
+};
 
 /**
  * Roomie has three kinds of session: an administrator signing in with the admin
@@ -165,21 +179,23 @@ export const requireBooker = async () => {
 };
 
 export const setAuthCookie = (response: NextResponse, user: AuthUser) => {
+    const sameSite = cookieSameSite();
     response.cookies.set(AUTH_COOKIE, createSessionValue(user), {
         httpOnly: true,
-        sameSite: 'lax',
-        secure: isProduction(),
-        path: COOKIE_PATH,
+        sameSite,
+        secure: isProduction() || sameSite === 'none',
+        path: cookiePath(),
         maxAge: SESSION_TTL_SECONDS,
     });
 };
 
 export const clearAuthCookie = (response: NextResponse) => {
+    const sameSite = cookieSameSite();
     response.cookies.set(AUTH_COOKIE, '', {
         httpOnly: true,
-        sameSite: 'lax',
-        secure: isProduction(),
-        path: COOKIE_PATH,
+        sameSite,
+        secure: isProduction() || sameSite === 'none',
+        path: cookiePath(),
         maxAge: 0,
     });
 };
