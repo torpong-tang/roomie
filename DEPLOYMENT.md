@@ -113,10 +113,16 @@ Connect `torpong-tang/roomie` to one Vercel project and set only the variables i
 production database or auth secrets to the frontend project.
 
 `npm run build` detects `VERCEL=1`, excludes the VPS-only Next API routes from the
-frontend artifact, uses root path `/`, and rewrites `/api/*` to
+frontend artifact and its server-only Prisma/auth helper files, clears stale `.next`
+route types, skips Prisma generation and VPS standalone packaging, uses root path `/`,
+and rewrites `/api/*` to
 `https://2startup.cloud/roomie` by default. The two public environment variables in
 `.env.vercel.example` remain recommended because they make the deployment intent
 explicit and allow the API gateway to be changed without a source-code release.
+
+The Vercel frontend build must succeed even when package install scripts are disabled;
+it does not require a generated Prisma client. Prisma generation and standalone
+packaging remain mandatory for the VPS full-stack/API build.
 
 Do not connect this repository to duplicate Vercel projects. If both `roomie` and
 `roombooking` exist, keep the project whose production domain is

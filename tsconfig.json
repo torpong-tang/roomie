@@ -30,5 +30,9 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", ".roomie-api-build-backup"]
+  "exclude": [
+    "node_modules",
+    ".roomie-api-build-backup",
+    ".roomie-server-lib-build-backup"
+  ]
 }
