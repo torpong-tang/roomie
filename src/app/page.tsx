@@ -30,18 +30,19 @@ interface Booking {
 
 export default function CalendarPage() {
   const { showAlert, showConfirm, withLoading } = useFeedback();
-  const { canBook } = useSession();
+  const { canBook, bootstrap } = useSession();
   const { t, language } = useTranslation();
   const DAYS_OF_WEEK = weekdayNames(language);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [rooms, setRooms] = useState<Room[]>(() => bootstrap?.rooms ?? []);
+  const [bookings, setBookings] = useState<Booking[]>(() => bootstrap?.bookings ?? []);
   const { places, placeId: selectedPlaceId, setPlaceId: setSelectedPlaceId, isAdmin, ready: placesReady } = usePlaceScope();
   const [filterSelectedRoom, setFilterSelectedRoom] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
   const [isRoomLocked, setIsRoomLocked] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [loadedPlaceId, setLoadedPlaceId] = useState<string | null>(() => bootstrap?.placeId ?? null);
 
   // Booking Form State
   const [roomId, setRoomId] = useState('');
@@ -82,10 +83,13 @@ export default function CalendarPage() {
 
   useEffect(() => {
     if (!placesReady) return;
-    void fetchData(selectedPlaceId).catch(() => {
-      void showAlert({ tone: 'error', title: t('calendar.loadFailTitle'), message: t('calendar.loadFailMessage') });
-    });
-  }, [placesReady, selectedPlaceId, fetchData, showAlert, t]);
+    if (loadedPlaceId === selectedPlaceId) return;
+    void fetchData(selectedPlaceId)
+      .then(() => setLoadedPlaceId(selectedPlaceId))
+      .catch(() => {
+        void showAlert({ tone: 'error', title: t('calendar.loadFailTitle'), message: t('calendar.loadFailMessage') });
+      });
+  }, [placesReady, selectedPlaceId, loadedPlaceId, fetchData, showAlert, t]);
 
   useEffect(() => {
     if (filterSelectedRoom !== 'all' && !rooms.some((room) => room.id === filterSelectedRoom)) {

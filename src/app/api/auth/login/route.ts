@@ -9,6 +9,7 @@ import {
     verifyAccessCode,
 } from '@/lib/auth';
 import { consumeAttempt, getClientIp, resetAttempts } from '@/lib/rate-limit';
+import { getRoomieBootstrap } from '@/lib/roomie-bootstrap';
 
 const ATTEMPT_LIMIT = 10;
 const ATTEMPT_WINDOW_MS = 5 * 60 * 1000;
@@ -48,12 +49,18 @@ export async function POST(request: Request) {
         );
     }
 
-    const succeed = (payload: Parameters<typeof setAuthCookie>[1]) => {
-        resetAttempts(`login:ip:${ip}`);
-        resetAttempts(`login:id:${normalizePlaceKey(identifier)}`);
-        const response = NextResponse.json({ user: payload });
-        setAuthCookie(response, payload);
-        return response;
+    const succeed = async (payload: Parameters<typeof setAuthCookie>[1]) => {
+        try {
+            const bootstrap = await getRoomieBootstrap(payload);
+            resetAttempts(`login:ip:${ip}`);
+            resetAttempts(`login:id:${normalizePlaceKey(identifier)}`);
+            const response = NextResponse.json({ user: payload, bootstrap });
+            setAuthCookie(response, payload);
+            return response;
+        } catch (error) {
+            console.error('Failed to prepare Roomie after sign-in:', error);
+            return NextResponse.json({ error: 'Unable to load Roomie. Please try again.' }, { status: 500 });
+        }
     };
 
     const appUser = await prisma.appUser.findUnique({ where: { email: normalizeEmail(identifier) } });
@@ -61,17 +68,17 @@ export async function POST(request: Request) {
         if (!constantTimeEquals(accessCode, getAccessCode())) {
             return NextResponse.json({ error: 'Access code is incorrect' }, { status: 401 });
         }
-        return succeed({ email: appUser.email, role: 'admin' });
+        return await succeed({ email: appUser.email, role: 'admin' });
     }
 
     const place = await prisma.place.findUnique({ where: { key: normalizePlaceKey(identifier) } });
     if (place?.isActive) {
         if (verifyAccessCode(accessCode, place.accessCodeHash)) {
-            return succeed({ email: place.key, role: 'place', placeId: place.id, placeName: place.key });
+            return await succeed({ email: place.key, role: 'place', placeId: place.id, placeName: place.key });
         }
         // The optional view code grants the same place, but read-only.
         if (place.viewCodeHash && verifyAccessCode(accessCode, place.viewCodeHash)) {
-            return succeed({ email: place.key, role: 'viewer', placeId: place.id, placeName: place.key });
+            return await succeed({ email: place.key, role: 'viewer', placeId: place.id, placeName: place.key });
         }
     }
 

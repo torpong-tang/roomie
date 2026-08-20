@@ -2,6 +2,7 @@
 
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { apiFetch, readJson } from '@/lib/paths';
+import type { RoomieBootstrap } from '@/lib/bootstrap-types';
 
 export type SessionUser = {
     email: string;
@@ -17,7 +18,8 @@ type SessionContextValue = {
     /** Viewers may read the calendar but cannot create or cancel bookings. */
     canBook: boolean;
     isViewer: boolean;
-    setUser: (user: SessionUser | null) => void;
+    bootstrap: RoomieBootstrap | null;
+    setSession: (user: SessionUser | null, bootstrap?: RoomieBootstrap | null) => void;
     refresh: () => Promise<void>;
 };
 
@@ -29,15 +31,28 @@ const SessionContext = createContext<SessionContextValue | null>(null);
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<SessionUser | null>(null);
+    const [bootstrap, setBootstrap] = useState<RoomieBootstrap | null>(null);
     const [status, setStatus] = useState<'loading' | 'ready'>('loading');
+
+    const setSession = useCallback((nextUser: SessionUser | null, nextBootstrap: RoomieBootstrap | null = null) => {
+        setUser(nextUser);
+        setBootstrap(nextBootstrap);
+        setStatus('ready');
+    }, []);
 
     const refresh = useCallback(async () => {
         try {
-            const response = await apiFetch('/api/auth/me');
-            const data = await readJson<{ user?: SessionUser | null }>(response);
+            const response = await apiFetch('/api/auth/bootstrap');
+            const data = await readJson<{
+                user?: SessionUser | null;
+                bootstrap?: RoomieBootstrap | null;
+            }>(response);
+            if (!response.ok) throw new Error('Unable to load session.');
             setUser(data.user ?? null);
+            setBootstrap(data.bootstrap ?? null);
         } catch {
             setUser(null);
+            setBootstrap(null);
         } finally {
             setStatus('ready');
         }
@@ -54,10 +69,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             isAdmin: user?.role === 'admin',
             isViewer: user?.role === 'viewer',
             canBook: user?.role === 'admin' || user?.role === 'place',
-            setUser,
+            bootstrap,
+            setSession,
             refresh,
         }),
-        [user, status, refresh]
+        [user, status, bootstrap, setSession, refresh]
     );
 
     return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

@@ -11,6 +11,7 @@ const serverLibFiles = [
   'places.ts',
   'prisma.ts',
   'rate-limit.ts',
+  'roomie-bootstrap.ts',
   'uploads.ts',
 ];
 const isVercelFrontendBuild = process.env.VERCEL === '1';

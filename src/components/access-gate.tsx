@@ -6,6 +6,7 @@ import { apiFetch, assetPath, readJson } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
 import { type SessionUser, useSession } from '@/components/session-provider';
 import { useTranslation } from '@/components/translation-provider';
+import type { RoomieBootstrap } from '@/lib/bootstrap-types';
 
 const REDIRECT_URL = 'https://2startup.cloud/';
 
@@ -15,7 +16,7 @@ type AccessGateProps = {
 
 export function AccessGate({ children }: AccessGateProps) {
     const { showAlert, withLoading } = useFeedback();
-    const { user, status: sessionStatus, setUser } = useSession();
+    const { user, status: sessionStatus, setSession } = useSession();
     const { t } = useTranslation();
     const [email, setEmail] = useState('');
     const [accessCode, setAccessCode] = useState('');
@@ -47,11 +48,15 @@ export function AccessGate({ children }: AccessGateProps) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: normalizedEmail, accessCode: normalizedCode }),
                 });
-                const data = await readJson<{ user?: SessionUser; error?: string }>(response);
+                const data = await readJson<{
+                    user?: SessionUser;
+                    bootstrap?: RoomieBootstrap;
+                    error?: string;
+                }>(response);
                 if (!response.ok || !data.user) {
                     throw new Error(data.error || t('login.genericError'));
                 }
-                setUser(data.user);
+                setSession(data.user, data.bootstrap ?? null);
             });
         } catch (caughtError) {
             const message = caughtError instanceof Error ? caughtError.message : t('login.genericError');

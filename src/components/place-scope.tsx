@@ -13,14 +13,20 @@ export type Place = { id: string; key: string };
  * pinned to its own. Returns the selection plus the places available to choose from.
  */
 export function usePlaceScope() {
-    const { user, status, isAdmin } = useSession();
-    const [places, setPlaces] = useState<Place[]>([]);
-    const [placeId, setPlaceId] = useState('');
-    const [ready, setReady] = useState(false);
+    const { user, status, isAdmin, bootstrap } = useSession();
+    const [places, setPlaces] = useState<Place[]>(() => bootstrap?.places ?? []);
+    const [placeId, setPlaceId] = useState(() => bootstrap?.placeId ?? '');
+    const [ready, setReady] = useState(() => Boolean(bootstrap));
 
     useEffect(() => {
         if (status !== 'ready') return;
         if (!user) {
+            setReady(true);
+            return;
+        }
+        if (bootstrap) {
+            setPlaces(bootstrap.places);
+            setPlaceId((current) => current || bootstrap.placeId);
             setReady(true);
             return;
         }
@@ -47,7 +53,7 @@ export function usePlaceScope() {
         return () => {
             cancelled = true;
         };
-    }, [status, user]);
+    }, [status, user, bootstrap]);
 
     return { places, placeId, setPlaceId, isAdmin, ready };
 }
