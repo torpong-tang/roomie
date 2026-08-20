@@ -9,9 +9,8 @@ export async function GET(request: Request) {
         const requestedPlaceId = new URL(request.url).searchParams.get('placeId') || undefined;
         const placeId = user?.role === 'admin' ? requestedPlaceId : user?.placeId;
         const rooms = await prisma.room.findMany({
-            where: placeId ? { placeId } : user?.role === 'admin' ? undefined : { placeId: null },
+            where: placeId ? { placeId } : undefined,
             include: {
-                bookings: true,
                 place: { select: { id: true, key: true } },
             },
             orderBy: {

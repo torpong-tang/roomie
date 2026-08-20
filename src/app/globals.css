@@ -27,7 +27,6 @@ body {
 .glass {
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
 }
@@ -35,23 +34,51 @@ body {
 .glass-card {
   background: rgba(30, 41, 59, 0.7); /* Darker Slate for High Contrast */
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.3);
 }
 
 .glass-input {
+  /* Override per field to tint the focus glow. */
+  --input-glow: var(--accent-blue);
   background: rgba(15, 23, 42, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #f8fafc;
   transition: all 0.2s ease;
 }
 
-.glass-input:focus {
-  border-color: var(--accent-blue);
-  background: rgba(15, 23, 42, 0.8);
+/*
+ * Focused fields bloom the same way buttons do on hover: a bright rim, a close
+ * halo and a wide spill. `outline: none` is safe here because this glow is the
+ * focus indicator, and it is driven by :focus so it shows for mouse and keyboard.
+ */
+.glass-input:focus,
+.glass-input:focus-visible {
+  border-color: var(--input-glow);
+  background: rgba(15, 23, 42, 0.85);
   outline: none;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--input-glow) 55%, transparent),
+    0 0 16px -2px color-mix(in srgb, var(--input-glow) 60%, transparent),
+    0 0 40px -10px color-mix(in srgb, var(--input-glow) 50%, transparent);
+}
+
+/*
+ * The image picker is a transparent file input laid over a dashed frame, so the
+ * frame has to show the focus itself.
+ */
+.dropzone-field {
+  --input-glow: var(--accent-blue);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dropzone-field:has(input:focus-visible) {
+  border-color: var(--input-glow);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--input-glow) 55%, transparent),
+    0 0 16px -2px color-mix(in srgb, var(--input-glow) 60%, transparent),
+    0 0 40px -10px color-mix(in srgb, var(--input-glow) 50%, transparent);
 }
 
 .glass-input::placeholder {
@@ -65,12 +92,51 @@ body {
   font-weight: 600;
   color: white;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Contains the sheen sweep below and clips it to the button's rounded corners. */
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
 }
 
-.glass-button:hover {
-  filter: brightness(1.1);
+/* A highlight that sweeps across the face of the button on hover. */
+.glass-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 70%
+  );
+  transform: translateX(-130%);
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-button:not(:disabled):hover::after,
+.glass-button:not(:disabled):focus-visible::after {
+  transform: translateX(130%);
+}
+
+/*
+ * Three stacked shadows make the bloom: a thin rim, a close halo and a wide,
+ * faint spill. Each variant supplies its own colour through --button-shadow,
+ * so the glow always matches the button.
+ */
+.glass-button:not(:disabled):hover,
+.glass-button:not(:disabled):focus-visible {
+  filter: brightness(1.08);
   transform: translateY(-1px);
-  box-shadow: 0 8px 20px -4px var(--button-shadow);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 8px 20px -6px var(--button-shadow),
+    0 0 22px -3px var(--button-shadow),
+    0 0 54px -12px var(--button-shadow);
+}
+
+.glass-button:not(:disabled):focus-visible {
+  outline: none;
 }
 
 .glass-button:active {
@@ -106,6 +172,30 @@ body {
 .glass-button.button-neutral {
   --button-shadow: rgba(148, 163, 184, 0.22);
   background: linear-gradient(135deg, rgba(100, 116, 139, 0.85), rgba(51, 65, 85, 0.95));
+}
+
+/*
+ * Every other button — the small icon buttons, logout, the tour trigger, modal
+ * close buttons — glows in its own text colour, so each one keeps its identity
+ * (amber for access codes, rose for delete, sky for toggles) without needing a
+ * per-button rule. The specificity here beats Tailwind's `transition-*`
+ * utilities so the shadow actually animates.
+ */
+button:not(.glass-button) {
+  transition:
+    box-shadow 0.28s ease,
+    background-color 0.22s ease,
+    color 0.22s ease,
+    transform 0.22s ease,
+    opacity 0.22s ease;
+}
+
+button:not(.glass-button):not(:disabled):hover,
+button:not(.glass-button):not(:disabled):focus-visible {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--glow-color, currentColor) 22%, transparent),
+    0 0 16px -4px color-mix(in srgb, var(--glow-color, currentColor) 75%, transparent),
+    0 0 36px -10px color-mix(in srgb, var(--glow-color, currentColor) 55%, transparent);
 }
 
 .driver-popover.roomie-tour {
@@ -176,8 +266,10 @@ body {
 .roomie-tour .driver-popover-footer button {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.6rem;
   justify-content: center;
+  text-align: center;
+  white-space: nowrap;
   margin: 0;
   border: 0;
   border-radius: 0.65rem;
@@ -194,6 +286,11 @@ body {
 .roomie-tour .driver-popover-footer button:not(:disabled):focus {
   background: linear-gradient(135deg, #38bdf8, #3b82f6);
   color: #fff;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 8px 18px -6px rgba(14, 165, 233, 0.5),
+    0 0 22px -3px rgba(56, 189, 248, 0.55),
+    0 0 48px -12px rgba(56, 189, 248, 0.5);
 }
 
 .roomie-tour .driver-popover-footer .driver-popover-prev-btn {
@@ -206,18 +303,49 @@ body {
 .roomie-tour .driver-popover-footer .driver-popover-prev-btn:not(:disabled):focus {
   background: linear-gradient(135deg, #a78bfa, #6366f1);
   color: #fff;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 8px 18px -6px rgba(99, 102, 241, 0.5),
+    0 0 22px -3px rgba(139, 92, 246, 0.55),
+    0 0 48px -12px rgba(139, 92, 246, 0.5);
+}
+
+/*
+ * Button icons are Lucide glyphs drawn as masks so they match the icons used
+ * elsewhere in the app, keep a fixed size, and follow the button's text colour.
+ * They used to be Unicode arrows, which sat tight against the label and changed
+ * size with the font.
+ */
+.roomie-tour .driver-popover-prev-btn::before,
+.roomie-tour .driver-popover-next-btn::after {
+  content: "";
+  /*
+   * inline-block plus margins rather than a flex gap: driver.js blockifies these
+   * buttons, so the icon has to flow inline with the label to stay on one line.
+   */
+  display: inline-block;
+  vertical-align: -0.18em;
+  height: 1.05em;
+  width: 1.05em;
+  background-color: currentColor;
+  -webkit-mask: var(--tour-icon) center / contain no-repeat;
+  mask: var(--tour-icon) center / contain no-repeat;
 }
 
 .roomie-tour .driver-popover-prev-btn::before {
-  content: "\2190";
-  font-size: 1.1rem;
-  line-height: 1;
+  margin-right: 0.5rem;
 }
 
 .roomie-tour .driver-popover-next-btn::after {
-  content: "\2192";
-  font-size: 1.1rem;
-  line-height: 1;
+  margin-left: 0.5rem;
+}
+
+.roomie-tour .driver-popover-prev-btn::before {
+  --tour-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 19-7-7 7-7'/%3E%3Cpath d='M19 12H5'/%3E%3C/svg%3E");
+}
+
+.roomie-tour .driver-popover-next-btn::after {
+  --tour-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14'/%3E%3Cpath d='m12 5 7 7-7 7'/%3E%3C/svg%3E");
 }
 
 .roomie-tour .driver-popover-next-btn.tour-finish-btn {
@@ -228,10 +356,15 @@ body {
 .roomie-tour .driver-popover-next-btn.tour-finish-btn:hover,
 .roomie-tour .driver-popover-next-btn.tour-finish-btn:focus {
   background: linear-gradient(135deg, #34d399, #059669);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 8px 18px -6px rgba(16, 185, 129, 0.5),
+    0 0 22px -3px rgba(52, 211, 153, 0.55),
+    0 0 48px -12px rgba(52, 211, 153, 0.5);
 }
 
 .roomie-tour .driver-popover-next-btn.tour-finish-btn::after {
-  content: "\2713";
+  --tour-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
 }
 
 .roomie-tour .driver-popover-arrow-side-left {
@@ -263,4 +396,470 @@ h1, h2, h3 {
 
 .text-muted {
   color: #94a3b8; /* Slate 400 */
+}
+
+/* ---------------------------------------------------------------------------
+ * Silk backdrop
+ *
+ * Approximates a flowing silk shader with layered gradients instead of WebGL.
+ * Every animated layer moves only via `transform`, so the browser can composite
+ * it on the GPU rather than repainting the blurred gradients each frame.
+ * ------------------------------------------------------------------------- */
+
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(circle at 22% 8%, #1d2b4d 0%, #131f3a 45%, #0b1224 100%);
+}
+
+.app-backdrop-folds,
+.app-backdrop-sheen,
+.app-backdrop-grain,
+.app-backdrop-veil {
+  position: absolute;
+  inset: 0;
+}
+
+/*
+ * Hard-stopped repeating gradients blurred into soft bands read as fabric folds.
+ * The three angles interfere with each other the way the shader's stacked sines did.
+ */
+.app-backdrop-folds {
+  inset: -30%;
+  background:
+    repeating-linear-gradient(
+      115deg,
+      transparent 0 38px,
+      rgba(96, 165, 250, 0.075) 38px 88px,
+      transparent 88px 152px
+    ),
+    repeating-linear-gradient(
+      71deg,
+      transparent 0 64px,
+      rgba(129, 140, 248, 0.062) 64px 136px,
+      transparent 136px 226px
+    ),
+    repeating-linear-gradient(
+      158deg,
+      transparent 0 92px,
+      rgba(56, 189, 248, 0.045) 92px 196px,
+      transparent 196px 312px
+    );
+  filter: blur(26px);
+  will-change: transform;
+  animation: silk-folds 48s ease-in-out infinite alternate;
+}
+
+/* A slow highlight sweeping across the folds, standing in for the shader's specular term. */
+.app-backdrop-sheen {
+  inset: -20%;
+  background:
+    radial-gradient(45% 60% at 30% 25%, rgba(125, 211, 252, 0.13) 0%, transparent 70%),
+    radial-gradient(50% 55% at 75% 70%, rgba(99, 102, 241, 0.12) 0%, transparent 72%);
+  filter: blur(38px);
+  will-change: transform;
+  animation: silk-sheen 66s ease-in-out infinite alternate;
+}
+
+/*
+ * Static fractal-noise tile, the counterpart of the shader's per-pixel noise().
+ * It is rasterised once and tiled, so it costs nothing to keep on screen.
+ */
+.app-backdrop-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+}
+
+/* Keeps text and glass panels readable over the brightest parts of the pattern. */
+.app-backdrop-veil {
+  background: linear-gradient(180deg, rgba(11, 18, 36, 0.4) 0%, rgba(11, 18, 36, 0.62) 100%);
+}
+
+@keyframes silk-folds {
+  from {
+    transform: translate3d(-3.5%, -2%, 0) rotate(0deg);
+  }
+  to {
+    transform: translate3d(3.5%, 2.5%, 0) rotate(1.6deg);
+  }
+}
+
+@keyframes silk-sheen {
+  from {
+    transform: translate3d(2.5%, 1.5%, 0) scale(1.04);
+  }
+  to {
+    transform: translate3d(-3%, -2.5%, 0) scale(1.14);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-backdrop-folds,
+  .app-backdrop-sheen {
+    animation: none;
+  }
+
+  /* The glow stays; only the travelling sheen and the lift are dropped. */
+  .glass-button::after {
+    display: none;
+  }
+
+  .glass-button:not(:disabled):hover,
+  .glass-button:not(:disabled):focus-visible {
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Glassmorphism system (sign-in / landing screen)
+ *
+ * Real glass needs something worth refracting, so the colour comes from the
+ * aurora field below and the panels do the blurring themselves. The page must
+ * NOT pre-blur its own backdrop, or every panel ends up frosting flat grey.
+ * ------------------------------------------------------------------------- */
+
+/* Soft colour blobs that drift behind the glass and give it something to pick up. */
+.aurora-field {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.aurora-field span {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  filter: blur(72px);
+  will-change: transform;
+}
+
+.aurora-field span:nth-child(1) {
+  top: -12%;
+  left: -6%;
+  height: 42vw;
+  width: 42vw;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.5), transparent 68%);
+  animation: aurora-a 34s ease-in-out infinite alternate;
+}
+
+.aurora-field span:nth-child(2) {
+  bottom: -18%;
+  left: 24%;
+  height: 38vw;
+  width: 38vw;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.45), transparent 68%);
+  animation: aurora-b 44s ease-in-out infinite alternate;
+}
+
+.aurora-field span:nth-child(3) {
+  top: 6%;
+  right: -10%;
+  height: 40vw;
+  width: 40vw;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.3), transparent 68%);
+  animation: aurora-c 38s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(14%, 10%, 0) scale(1.18); }
+}
+
+@keyframes aurora-b {
+  from { transform: translate3d(0, 0, 0) scale(1.1); }
+  to   { transform: translate3d(-12%, -14%, 0) scale(1); }
+}
+
+@keyframes aurora-c {
+  from { transform: translate3d(0, 0, 0) scale(1.05); }
+  to   { transform: translate3d(-10%, 12%, 0) scale(1.2); }
+}
+
+/*
+ * The frosted surface. Two backgrounds paint the fill (padding-box) and a
+ * gradient hairline (border-box) in one element, so the rim catches light on the
+ * top-left and fades away at the bottom-right the way a real bevel does.
+ */
+/*
+ * No `position` here on purpose. backdrop-filter already makes the element a
+ * containing block for the ::before sheen, and declaring `position: relative`
+ * would beat Tailwind's `fixed`/`absolute` utilities (unlayered CSS wins over
+ * layered ones) and silently drop fixed panels back into the flow.
+ */
+.glass-panel {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(
+      150deg,
+      rgba(255, 255, 255, 0.12),
+      rgba(255, 255, 255, 0.045) 45%,
+      rgba(255, 255, 255, 0.08)
+    ) padding-box,
+    linear-gradient(
+      150deg,
+      rgba(255, 255, 255, 0.55),
+      rgba(255, 255, 255, 0.07) 42%,
+      rgba(255, 255, 255, 0.3)
+    ) border-box;
+  backdrop-filter: blur(30px) saturate(175%);
+  box-shadow:
+    0 30px 70px -22px rgba(2, 6, 23, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  isolation: isolate;
+}
+
+/*
+ * Specular sheen across the upper-left corner. z-index -1 keeps it above the
+ * panel's own fill but under the content, so it never washes out text.
+ */
+.glass-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(125% 65% at 12% -12%, rgba(255, 255, 255, 0.18), transparent 62%);
+  pointer-events: none;
+}
+
+/* Lighter variant for photo frames and feature rows. */
+.glass-tile {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03)) padding-box,
+    linear-gradient(150deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.05) 55%) border-box;
+  backdrop-filter: blur(16px) saturate(150%);
+  box-shadow:
+    0 18px 40px -22px rgba(2, 6, 23, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s ease;
+}
+
+.glass-tile-hover:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 26px 52px -22px rgba(2, 6, 23, 0.9),
+    0 0 30px -12px rgba(125, 211, 252, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-field span {
+    animation: none;
+  }
+
+  .glass-tile-hover:hover {
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Accessibility preferences
+ * ------------------------------------------------------------------------- */
+
+/*
+ * Every rem-based size in the app scales from this one value. The inline script
+ * in the layout sets --font-scale before first paint so the page never reflows.
+ */
+html {
+  font-size: calc(16px * var(--font-scale, 1));
+}
+
+/*
+ * Room for the fixed accessibility bar at the top of every page. The bar measures
+ * itself and publishes --a11y-bar-height; the fallback covers the first paint.
+ */
+body {
+  padding-top: var(--a11y-bar-height, 3.5rem);
+}
+
+.a11y-range {
+  width: 7rem;
+  height: 0.5rem;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    #22d3ee 0%,
+    #22d3ee var(--range-progress, 50%),
+    rgba(255, 255, 255, 0.18) var(--range-progress, 50%),
+    rgba(255, 255, 255, 0.18) 100%
+  );
+  cursor: pointer;
+}
+
+@media (min-width: 640px) {
+  .a11y-range {
+    width: 9rem;
+  }
+}
+
+.a11y-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 1.25rem;
+  width: 1.25rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  background: #22d3ee;
+  box-shadow: 0 0 14px -2px rgba(34, 211, 238, 0.9);
+}
+
+.a11y-range::-moz-range-thumb {
+  height: 1.25rem;
+  width: 1.25rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  background: #22d3ee;
+  box-shadow: 0 0 14px -2px rgba(34, 211, 238, 0.9);
+}
+
+.a11y-range:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.7), 0 0 18px -2px rgba(34, 211, 238, 0.8);
+}
+
+/* ---------------------------------------------------------------------------
+ * Colour mode: greyscale
+ *
+ * A fixed, click-through overlay that desaturates whatever is painted behind it.
+ * Filtering <html> or <body> directly would make them the containing block for
+ * every fixed element and break the sticky header and the sign-in overlay.
+ * ------------------------------------------------------------------------- */
+html[data-color-mode="grayscale"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  backdrop-filter: grayscale(1);
+}
+
+/* ---------------------------------------------------------------------------
+ * Colour mode: high contrast (yellow on black)
+ *
+ * Glass, gradients and the animated backdrop all reduce contrast, so this mode
+ * strips them out entirely rather than trying to tint them.
+ * ------------------------------------------------------------------------- */
+html[data-color-mode="contrast"] {
+  --hc-bg: #000000;
+  --hc-fg: #ffff00;
+  --hc-muted: #ffffff;
+}
+
+html[data-color-mode="contrast"] body {
+  background: var(--hc-bg);
+  color: var(--hc-fg);
+}
+
+html[data-color-mode="contrast"] .app-backdrop,
+html[data-color-mode="contrast"] .aurora-field {
+  display: none;
+}
+
+html[data-color-mode="contrast"] .glass,
+html[data-color-mode="contrast"] .glass-card,
+html[data-color-mode="contrast"] .glass-panel,
+html[data-color-mode="contrast"] .glass-tile,
+html[data-color-mode="contrast"] .driver-popover.roomie-tour {
+  background: var(--hc-bg) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 2px solid var(--hc-fg) !important;
+  box-shadow: none !important;
+  color: var(--hc-fg);
+}
+
+html[data-color-mode="contrast"] .glass-panel::before,
+html[data-color-mode="contrast"] .glass-button::after {
+  display: none;
+}
+
+html[data-color-mode="contrast"] h1,
+html[data-color-mode="contrast"] h2,
+html[data-color-mode="contrast"] h3,
+html[data-color-mode="contrast"] h4,
+html[data-color-mode="contrast"] p,
+html[data-color-mode="contrast"] span,
+html[data-color-mode="contrast"] label,
+html[data-color-mode="contrast"] li,
+html[data-color-mode="contrast"] th,
+html[data-color-mode="contrast"] td,
+html[data-color-mode="contrast"] a {
+  color: var(--hc-fg) !important;
+}
+
+html[data-color-mode="contrast"] svg {
+  color: var(--hc-fg) !important;
+}
+
+html[data-color-mode="contrast"] button,
+html[data-color-mode="contrast"] .glass-button {
+  background: var(--hc-bg) !important;
+  background-image: none !important;
+  border: 2px solid var(--hc-fg) !important;
+  color: var(--hc-fg) !important;
+  filter: none !important;
+  text-shadow: none !important;
+}
+
+html[data-color-mode="contrast"] button:not(:disabled):hover,
+html[data-color-mode="contrast"] button:not(:disabled):focus-visible,
+html[data-color-mode="contrast"] .glass-button:not(:disabled):hover,
+html[data-color-mode="contrast"] .glass-button:not(:disabled):focus-visible {
+  background: var(--hc-fg) !important;
+  color: var(--hc-bg) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+html[data-color-mode="contrast"] button:hover svg,
+html[data-color-mode="contrast"] button:focus-visible svg,
+html[data-color-mode="contrast"] button:hover span,
+html[data-color-mode="contrast"] button:focus-visible span {
+  color: var(--hc-bg) !important;
+}
+
+html[data-color-mode="contrast"] input,
+html[data-color-mode="contrast"] select,
+html[data-color-mode="contrast"] textarea,
+html[data-color-mode="contrast"] .glass-input {
+  background: var(--hc-bg) !important;
+  border: 2px solid var(--hc-fg) !important;
+  color: var(--hc-fg) !important;
+}
+
+html[data-color-mode="contrast"] .glass-input:focus {
+  box-shadow: 0 0 0 3px var(--hc-fg) !important;
+}
+
+html[data-color-mode="contrast"] .glass-input::placeholder {
+  color: var(--hc-muted) !important;
+  opacity: 0.75;
+}
+
+html[data-color-mode="contrast"] img {
+  border: 1px solid var(--hc-fg);
+}
+
+/* The toolbar's own selected state has to stay legible in this mode too. */
+html[data-color-mode="contrast"] .a11y-range {
+  background: var(--hc-fg);
+}
+
+html[data-color-mode="contrast"] [aria-pressed="true"] {
+  background: var(--hc-fg) !important;
+  color: var(--hc-bg) !important;
+}
+
+/* The selected day's blue wash is decorative; give it the high-contrast accent. */
+html[data-color-mode="contrast"] .day-active {
+  background: color-mix(in srgb, var(--hc-fg) 20%, transparent) !important;
+  border-color: var(--hc-fg) !important;
 }

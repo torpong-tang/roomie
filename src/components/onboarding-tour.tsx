@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { CircleHelp } from 'lucide-react';
 import type { AllowedButtons, Driver } from 'driver.js';
+import { useTranslation } from '@/components/translation-provider';
 
 type OnboardingTourProps = {
     role: string;
@@ -24,6 +25,7 @@ function isCalendarPath(pathname: string) {
 }
 
 export function OnboardingTour({ role }: OnboardingTourProps) {
+    const { t } = useTranslation();
     const pathname = usePathname();
     const router = useRouter();
     const activeTour = useRef<Driver | null>(null);
@@ -39,59 +41,57 @@ export function OnboardingTour({ role }: OnboardingTourProps) {
             {
                 id: 'welcome',
                 selector: '[data-tour="brand"]',
-                title: 'Welcome to Roomie',
-                text: 'จองห้องประชุมและตรวจตารางว่างได้จากหน้า Calendar นี้',
+                title: t('tour.welcomeTitle'),
+                text: t('tour.welcomeText'),
                 position: 'bottom' as const,
             },
             {
                 id: 'place',
                 selector: '[data-tour="place-selector"]',
-                title: 'Place',
-                text: isAdmin
-                    ? 'Admin สามารถสลับสถานที่เพื่อดูและจองห้องของแต่ละสาขาได้'
-                    : 'สถานที่นี้ถูกกำหนดจากสิทธิ์เข้าใช้งานของคุณ',
+                title: t('tour.placeTitle'),
+                text: isAdmin ? t('tour.placeTextAdmin') : t('tour.placeTextUser'),
             },
             {
                 id: 'room',
                 selector: '[data-tour="room-selector"]',
-                title: 'Meeting Room',
-                text: 'กรองตารางให้แสดงเฉพาะห้องประชุมที่ต้องการตรวจสอบ',
+                title: t('tour.roomTitle'),
+                text: t('tour.roomText'),
             },
             {
                 id: 'calendar',
                 selector: '[data-tour="calendar-grid"]',
-                title: 'Availability Calendar',
-                text: 'เลือกวันที่เพื่อดู Agenda และรายการจองที่มีอยู่',
+                title: t('tour.calendarTitle'),
+                text: t('tour.calendarText'),
                 position: 'top' as const,
             },
             {
                 id: 'booking',
                 selector: '[data-tour="new-booking"]',
-                title: 'Create Booking',
-                text: 'เริ่มการจองใหม่ พร้อมระบุหัวข้อ เวลา ผู้จอง และช่องทางติดต่อกลับ',
+                title: t('tour.bookingTitle'),
+                text: t('tour.bookingText'),
                 position: 'left' as const,
             },
             ...(isAdmin ? [
                 {
                     id: 'rooms',
                     selector: '[data-tour="rooms-nav"]',
-                    title: 'Manage Rooms',
-                    text: 'จัดการห้องประชุมและกำหนดว่าสังกัดสถานที่ใด',
+                    title: t('tour.roomsTitle'),
+                    text: t('tour.roomsText'),
                     position: 'bottom' as const,
                 },
                 {
                     id: 'access',
                     selector: '[data-tour="access-nav"]',
-                    title: 'Access Management',
-                    text: 'สร้างสถานที่ รหัสเข้าใช้งาน และสิทธิ์ผู้ดูแลระบบจากเมนูนี้',
+                    title: t('tour.accessTitle'),
+                    text: t('tour.accessText'),
                     position: 'bottom' as const,
                 },
             ] : []),
             {
                 id: 'history',
                 selector: '[data-tour="history-nav"]',
-                title: 'Booking History',
-                text: 'เรียกดูประวัติการจองและส่งออกรายการเมื่อจำเป็น',
+                title: t('tour.historyTitle'),
+                text: t('tour.historyText'),
                 position: 'bottom' as const,
             },
         ].filter((step) => document.querySelector(step.selector));
@@ -110,15 +110,15 @@ export function OnboardingTour({ role }: OnboardingTourProps) {
             stageRadius: 12,
             popoverClass: 'roomie-tour',
             showProgress: true,
-            progressText: '{{current}} of {{total}}',
-            nextBtnText: 'Next',
-            prevBtnText: 'Back',
-            doneBtnText: 'Finish',
+            progressText: t('tour.progress', { current: '{{current}}', total: '{{total}}' }),
+            nextBtnText: t('tour.next'),
+            prevBtnText: t('tour.back'),
+            doneBtnText: t('tour.finish'),
             onDestroyed: markAsSeen,
             onPopoverRender: (popover, { state }) => {
                 const isLastStep = state.activeIndex === steps.length - 1;
-                popover.previousButton.setAttribute('aria-label', 'Back to previous step');
-                popover.nextButton.setAttribute('aria-label', isLastStep ? 'Finish guided tour' : 'Continue to next step');
+                popover.previousButton.setAttribute('aria-label', t('tour.back'));
+                popover.nextButton.setAttribute('aria-label', isLastStep ? t('tour.finish') : t('tour.next'));
                 popover.nextButton.classList.toggle('tour-finish-btn', isLastStep);
             },
             steps: steps.map((step, index) => {
@@ -138,7 +138,7 @@ export function OnboardingTour({ role }: OnboardingTourProps) {
 
         activeTour.current = tour;
         tour.drive();
-    }, [pathname, role]);
+    }, [pathname, role, t]);
 
     useEffect(() => {
         if (!isCalendarPath(pathname) || autoLaunchChecked.current) return;
@@ -171,12 +171,12 @@ export function OnboardingTour({ role }: OnboardingTourProps) {
         <button
             type="button"
             onClick={handleOpenTour}
-            aria-label="Open guided tour"
-            title="Guided tour"
+            aria-label={t('nav.openTour')}
+            title={t('nav.openTour')}
             className="flex items-center gap-2 rounded-lg bg-cyan-500/15 px-3 py-2 font-medium text-cyan-200 transition-colors hover:bg-cyan-500/25"
         >
             <CircleHelp className="h-5 w-5" />
-            <span className="hidden lg:inline">Tour</span>
+            <span className="hidden lg:inline">{t('nav.tour')}</span>
         </button>
     );
 }

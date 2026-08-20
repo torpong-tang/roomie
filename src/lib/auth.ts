@@ -5,9 +5,16 @@ import prisma from '@/lib/prisma';
 
 export const AUTH_COOKIE = 'roomie_session';
 export const COOKIE_PATH = '/roomie';
-export const USER_ROLES = ['readonly', 'user', 'admin'] as const;
-export type UserRole = typeof USER_ROLES[number];
-export type SessionRole = UserRole | 'place';
+export const SESSION_TTL_SECONDS = 60 * 60 * 12;
+
+/**
+ * Roomie has three kinds of session: an administrator signing in with the admin
+ * access code, a place signing in with its own access code, and a viewer signing
+ * in with a place's optional read-only view code.
+ */
+export type SessionRole = 'admin' | 'place' | 'viewer';
+
+const PLACE_ROLES: SessionRole[] = ['place', 'viewer'];
 
 export type AuthUser = {
     email: string;
@@ -15,6 +22,8 @@ export type AuthUser = {
     placeId?: string;
     placeName?: string;
 };
+
+type SessionPayload = AuthUser & { exp: number };
 
 const isProduction = () => process.env.NODE_ENV === 'production';
 
@@ -44,6 +53,13 @@ const fromBase64Url = (value: string) =>
 const sign = (payload: string) =>
     createHmac('sha256', getSecret()).update(payload).digest('base64url');
 
+export const constantTimeEquals = (left: string, right: string) => {
+    const leftBuffer = Buffer.from(left);
+    const rightBuffer = Buffer.from(right);
+    if (leftBuffer.length !== rightBuffer.length) return false;
+    return timingSafeEqual(leftBuffer, rightBuffer);
+};
+
 export const normalizeEmail = (email: string) => email.trim().toLowerCase();
 export const normalizePlaceKey = (key: string) => key.trim().toLowerCase();
 
@@ -62,7 +78,11 @@ export const verifyAccessCode = (accessCode: string, storedHash: string) => {
 };
 
 export const createSessionValue = (user: AuthUser) => {
-    const payload = toBase64Url(JSON.stringify(user));
+    const session: SessionPayload = {
+        ...user,
+        exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
+    };
+    const payload = toBase64Url(JSON.stringify(session));
     return `${payload}.${sign(payload)}`;
 };
 
@@ -70,17 +90,15 @@ export const readSessionValue = (value?: string): AuthUser | null => {
     if (!value) return null;
     const [payload, signature] = value.split('.');
     if (!payload || !signature) return null;
-
-    const expected = sign(payload);
-    const signatureBuffer = Buffer.from(signature);
-    const expectedBuffer = Buffer.from(expected);
-    if (signatureBuffer.length !== expectedBuffer.length) return null;
-    if (!timingSafeEqual(signatureBuffer, expectedBuffer)) return null;
+    if (!constantTimeEquals(signature, sign(payload))) return null;
 
     try {
         const parsed = JSON.parse(fromBase64Url(payload));
-        if (typeof parsed.email !== 'string' || ![...USER_ROLES, 'place'].includes(parsed.role)) return null;
-        if (parsed.role === 'place' && typeof parsed.placeId !== 'string') return null;
+        if (typeof parsed.email !== 'string') return null;
+        if (parsed.role !== 'admin' && !PLACE_ROLES.includes(parsed.role)) return null;
+        if (PLACE_ROLES.includes(parsed.role) && typeof parsed.placeId !== 'string') return null;
+        // Sessions carry their own expiry so a copied cookie value cannot outlive it.
+        if (typeof parsed.exp !== 'number' || parsed.exp <= Math.floor(Date.now() / 1000)) return null;
         return {
             email: normalizeEmail(parsed.email),
             role: parsed.role,
@@ -92,17 +110,19 @@ export const readSessionValue = (value?: string): AuthUser | null => {
     }
 };
 
-export const getCurrentUser = async () => {
+export const getCurrentUser = async (): Promise<AuthUser | null> => {
     const cookieStore = await cookies();
     const sessionUser = readSessionValue(cookieStore.get(AUTH_COOKIE)?.value);
     if (!sessionUser) return null;
 
-    if (sessionUser.role === 'place' && sessionUser.placeId) {
+    if (PLACE_ROLES.includes(sessionUser.role) && sessionUser.placeId) {
         const place = await prisma.place.findUnique({ where: { id: sessionUser.placeId } });
         if (!place || !place.isActive) return null;
+        // Clearing a place's view code must end the viewer sessions it handed out.
+        if (sessionUser.role === 'viewer' && !place.viewCodeHash) return null;
         return {
             email: place.key,
-            role: 'place' as const,
+            role: sessionUser.role,
             placeId: place.id,
             placeName: place.key,
         };
@@ -111,10 +131,7 @@ export const getCurrentUser = async () => {
     const user = await prisma.appUser.findUnique({ where: { email: sessionUser.email } });
     if (!user || !user.isActive) return null;
 
-    return {
-        email: user.email,
-        role: user.role as UserRole,
-    };
+    return { email: user.email, role: 'admin' };
 };
 
 export const requireUser = async () => {
@@ -134,11 +151,15 @@ export const requireAdmin = async () => {
     return { user, response: null };
 };
 
+/** Anything that changes a booking. Viewers are read-only. */
 export const requireBooker = async () => {
     const { user, response } = await requireUser();
     if (response) return { user: null, response };
-    if (user?.role === 'readonly') {
-        return { user: null, response: NextResponse.json({ error: 'Read-only users cannot make changes' }, { status: 403 }) };
+    if (user?.role === 'viewer') {
+        return {
+            user: null,
+            response: NextResponse.json({ error: 'This account has view-only access' }, { status: 403 }),
+        };
     }
     return { user, response: null };
 };
@@ -147,9 +168,9 @@ export const setAuthCookie = (response: NextResponse, user: AuthUser) => {
     response.cookies.set(AUTH_COOKIE, createSessionValue(user), {
         httpOnly: true,
         sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProduction(),
         path: COOKIE_PATH,
-        maxAge: 60 * 60 * 12,
+        maxAge: SESSION_TTL_SECONDS,
     });
 };
 
@@ -157,7 +178,7 @@ export const clearAuthCookie = (response: NextResponse) => {
     response.cookies.set(AUTH_COOKIE, '', {
         httpOnly: true,
         sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProduction(),
         path: COOKIE_PATH,
         maxAge: 0,
     });

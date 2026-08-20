@@ -1,11 +1,31 @@
 import type { Metadata } from "next";
 import { Prompt } from "next/font/google";
 import "./globals.css";
-import Link from "next/link";
-import { assetPath } from "@/lib/paths";
 import { AccessGate } from "@/components/access-gate";
 import { AppNavigation } from "@/components/app-navigation";
 import { FeedbackProvider } from "@/components/feedback-provider";
+import { SessionProvider } from "@/components/session-provider";
+import { AppBackground } from "@/components/app-background";
+import { PreferencesProvider, STORAGE_KEY } from "@/components/preferences-provider";
+import { AccessibilityToolbar } from "@/components/accessibility-toolbar";
+import { AppFooter } from "@/components/app-footer";
+
+/**
+ * Applies the saved accessibility preferences before the first paint, so the page
+ * never flashes the default theme or font size while React hydrates.
+ */
+const preferencesScript = `
+(function () {
+  try {
+    var saved = JSON.parse(localStorage.getItem(${JSON.stringify(STORAGE_KEY)}) || '{}');
+    var root = document.documentElement;
+    root.lang = saved.language === 'en' ? 'en' : 'th';
+    root.dataset.colorMode = ['contrast', 'grayscale'].indexOf(saved.colorMode) >= 0 ? saved.colorMode : 'default';
+    var scale = Number(saved.fontScale);
+    root.style.setProperty('--font-scale', String(scale >= 0.85 && scale <= 1.5 ? scale : 1));
+  } catch (error) {}
+})();
+`;
 
 const prompt = Prompt({
   subsets: ["latin", "thai"],
@@ -23,29 +43,32 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="th" data-color-mode="default" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: preferencesScript }} />
+      </head>
       <body className={prompt.className} suppressHydrationWarning>
+        <AppBackground />
+        <PreferencesProvider>
         <FeedbackProvider>
-          <AccessGate>
-            <div className="min-h-screen flex flex-col">
-              <header className="glass sticky top-0 z-50 px-6 py-4 flex items-center justify-between mx-4 mt-4 rounded-2xl">
-                <Link href="/" data-tour="brand" className="text-2xl font-bold text-white flex items-center gap-3 group">
-                  <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/20 group-hover:border-blue-400/50 transition-colors shadow-lg">
-                    <img src={assetPath("/logo.png")} alt="Roomie Logo" className="w-full h-full object-cover shrink-0" />
-                  </div>
-                  <span className="tracking-tight">Roomie</span>
-                </Link>
-                <AppNavigation />
-              </header>
-              <main className="flex-1 p-6">
-                {children}
-              </main>
-              <footer className="px-6 pb-6 text-center text-sm font-medium text-slate-400">
-                &copy; 2026 TPT Team &bull; Version 1.0
-              </footer>
-            </div>
-          </AccessGate>
+          <SessionProvider>
+            <AccessibilityToolbar />
+            <AccessGate>
+              <div className="min-h-screen flex flex-col">
+                {/* The brand lives in the accessibility bar directly above, so the
+                    header carries the navigation alone. */}
+                <header className="glass sticky top-[var(--a11y-bar-height,3.5rem)] z-50 px-6 py-4 flex items-center justify-end mx-4 mt-4 rounded-2xl">
+                  <AppNavigation />
+                </header>
+                <main className="flex-1 p-6">
+                  {children}
+                </main>
+                <AppFooter />
+              </div>
+            </AccessGate>
+          </SessionProvider>
         </FeedbackProvider>
+        </PreferencesProvider>
       </body>
     </html>
   );

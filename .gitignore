@@ -34,17 +34,8 @@ yarn-error.log*
 .env*
 !.env.supabase.example
 
-# local database artifacts (production uses PostgreSQL)
-/dev.db
-/dev.db-journal
-/prisma/*.db
-/prisma/*.db-journal
-/prisma/*.db-wal
-/prisma/*.db-shm
-/prisma/prisma/*.db
-/prisma/prisma/*.db-journal
-/prisma/prisma/*.db-wal
-/prisma/prisma/*.db-shm
+# runtime data (uploaded room images) - see ROOMIE_UPLOAD_DIR
+/var/
 
 # vercel
 .vercel

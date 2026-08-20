@@ -2,6 +2,7 @@
 
 import { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, HelpCircle, LoaderCircle, Trash2, X } from 'lucide-react';
+import { useTranslation } from '@/components/translation-provider';
 
 type AlertTone = 'success' | 'error' | 'info';
 type ConfirmTone = 'primary' | 'danger';
@@ -34,6 +35,7 @@ type DialogState =
 const FeedbackContext = createContext<FeedbackContextValue | null>(null);
 
 export function FeedbackProvider({ children }: { children: ReactNode }) {
+    const { t } = useTranslation();
     const [dialog, setDialog] = useState<DialogState>(null);
     const [loadingCount, setLoadingCount] = useState(0);
     const [loadingMessage, setLoadingMessage] = useState('Processing...');
@@ -113,7 +115,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
                                 <>
                                     <button type="button" onClick={() => settleConfirm(false)} className="glass-button button-neutral flex items-center gap-2 rounded-xl px-5 py-3 font-bold">
                                         <X className="h-4 w-4" />
-                                        {dialog.cancelLabel ?? 'Cancel'}
+                                        {dialog.cancelLabel ?? t('common.cancel')}
                                     </button>
                                     <button
                                         type="button"
@@ -121,13 +123,13 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
                                         className={`glass-button flex items-center gap-2 rounded-xl px-5 py-3 font-bold ${dialog.tone === 'danger' ? 'button-danger' : 'button-primary'}`}
                                     >
                                         {dialog.tone === 'danger' ? <Trash2 className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                                        {dialog.confirmLabel ?? 'Confirm'}
+                                        {dialog.confirmLabel ?? t('common.confirm')}
                                     </button>
                                 </>
                             ) : (
                                 <button type="button" autoFocus onClick={dismissAlert} className="glass-button button-primary flex items-center gap-2 rounded-xl px-5 py-3 font-bold">
                                     <CheckCircle2 className="h-4 w-4" />
-                                    OK
+                                    {t('common.ok')}
                                 </button>
                             )}
                         </div>

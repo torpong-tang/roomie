@@ -3,26 +3,23 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const users = [
-    { email: 'torpong@gmail.com', role: 'admin' },
-    { email: 'user@2startup.cloud', role: 'user' },
-    { email: 'readonly@2startup.cloud', role: 'readonly' },
+// Roomie has administrators only; every other sign-in is a Place with its own access code.
+const admins = [
+    { email: 'torpong@gmail.com' },
 ];
 
 try {
-    for (const user of users) {
+    for (const admin of admins) {
         await prisma.appUser.upsert({
-            where: { email: user.email },
-            update: { role: user.role, isActive: true },
-            create: user,
+            where: { email: admin.email },
+            update: { role: 'admin', isActive: true },
+            create: { email: admin.email, role: 'admin' },
         });
     }
 
-    const seeded = await prisma.appUser.findMany({
-        orderBy: { email: 'asc' },
-    });
-    console.log(`Seeded ${seeded.length} app users.`);
-    seeded.forEach((user) => console.log(`${user.email} (${user.role})`));
+    const seeded = await prisma.appUser.findMany({ orderBy: { email: 'asc' } });
+    console.log(`Seeded ${seeded.length} administrator(s).`);
+    seeded.forEach((user) => console.log(`${user.email} (${user.isActive ? 'active' : 'inactive'})`));
 } finally {
     await prisma.$disconnect();
 }

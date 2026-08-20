@@ -1,5 +1,5 @@
 {
-  "name": "appstart",
+  "name": "roomie",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -11,35 +11,29 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
-    "db:seed-users": "node scripts/seed-app-users.mjs"
+    "db:seed-users": "node scripts/seed-app-users.mjs",
+    "db:check": "node scripts/check-supabase-connection.mjs",
+    "db:migrate-uploads": "node scripts/migrate-uploads.mjs",
+    "assets:hero": "node scripts/optimize-hero-images.mjs"
   },
   "dependencies": {
-    "@libsql/client": "^0.17.0",
-    "@prisma/adapter-better-sqlite3": "^7.3.0",
-    "@prisma/adapter-libsql": "^7.3.0",
     "@prisma/client": "^6.4.1",
-    "better-sqlite3": "^12.6.2",
-    "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "driver.js": "^1.4.0",
     "lucide-react": "^0.563.0",
-    "next": "16.2.6",
+    "next": "^16.3.1",
     "prisma": "^6.4.1",
     "react": "19.2.3",
-    "react-day-picker": "^9.13.0",
-    "react-dom": "19.2.3",
-    "react-dropzone": "^14.4.0",
-    "tailwind-merge": "^3.4.0"
+    "react-dom": "19.2.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^17.2.4",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "^16.3.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

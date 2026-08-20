@@ -6,6 +6,11 @@ import { Search, Download, ArrowLeft, User, DoorOpen, Trash2 } from 'lucide-reac
 import Link from 'next/link';
 import { apiPath } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
+import { PlaceSelect, usePlaceScope } from '@/components/place-scope';
+import { useSession } from '@/components/session-provider';
+import { ViewerNotice } from '@/components/viewer-notice';
+import { useTranslation } from '@/components/translation-provider';
+import { formatDate } from '@/lib/i18n';
 
 interface Room {
     id: string;
@@ -30,26 +35,35 @@ export default function BookingsListPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
+    const { places, placeId, setPlaceId, isAdmin, ready: placesReady } = usePlaceScope();
+    const { isViewer } = useSession();
+    const { t, language } = useTranslation();
 
-    const fetchData = useCallback(async () => {
-        try {
-            await withLoading('Loading booking history...', async () => {
-                const res = await fetch(apiPath('/api/bookings'));
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Unable to load bookings.');
-                setBookings(data);
-            });
-        } catch {
-            await showAlert({ tone: 'error', title: 'Unable to load history', message: 'Booking history could not be loaded.' });
-        } finally {
-            setLoading(false);
-        }
-    }, [showAlert, withLoading]);
+    const loadBookings = useCallback(async () => {
+        const suffix = placeId ? `?placeId=${encodeURIComponent(placeId)}` : '';
+        const res = await fetch(`${apiPath('/api/bookings')}${suffix}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || t('history.loadFailMessage'));
+        setBookings(data);
+    }, [placeId, t]);
 
     useEffect(() => {
         setMounted(true);
-        void fetchData();
-    }, [fetchData]);
+    }, []);
+
+    useEffect(() => {
+        if (!placesReady) return;
+        const load = async () => {
+            try {
+                await withLoading(t('history.loading'), loadBookings);
+            } catch {
+                await showAlert({ tone: 'error', title: t('history.loadFailTitle'), message: t('history.loadFailMessage') });
+            } finally {
+                setLoading(false);
+            }
+        };
+        void load();
+    }, [placesReady, loadBookings, showAlert, withLoading, t]);
 
     const filteredBookings = bookings.filter(b =>
         b.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -60,11 +74,11 @@ export default function BookingsListPage() {
     );
 
     const exportToCSV = () => {
-        const headers = ['Title', 'Place', 'Room', 'Booked By', 'Contact', 'Start Time', 'End Time'];
+        const headers = [t('calendar.bookingTitle'), t('place.label'), t('calendar.room'), t('calendar.bookedBy'), t('calendar.contact'), t('calendar.startTime'), t('calendar.endTime')];
         const rows = filteredBookings.map(b => [
             b.title,
             b.room?.place?.key || '',
-            b.room?.name || 'Unknown',
+            b.room?.name || t('common.unassigned'),
             b.user,
             b.contact || '',
             format(new Date(b.startTime), 'yyyy-MM-dd HH:mm'),
@@ -91,34 +105,34 @@ export default function BookingsListPage() {
         // Only allow canceling future bookings
         const booking = bookings.find(b => b.id === id);
         if (booking && new Date(booking.startTime) < new Date()) {
-            await showAlert({ tone: 'error', title: 'Cannot cancel booking', message: 'Past bookings cannot be cancelled.' });
+            await showAlert({ tone: 'error', title: t('history.cannotCancelTitle'), message: t('history.cannotCancelMessage') });
             return;
         }
 
         const confirmed = await showConfirm({
-            title: 'Cancel this booking?',
-            message: `This will remove "${booking?.title || 'this booking'}" from booking history.`,
-            confirmLabel: 'Cancel Booking',
+            title: t('history.cancelTitle'),
+            message: t('history.cancelMessage', { title: booking?.title || t('history.cancelFallback') }),
+            confirmLabel: t('calendar.cancelConfirm'),
             tone: 'danger',
         });
         if (!confirmed) return;
         try {
-            await withLoading('Cancelling booking...', async () => {
+            await withLoading(t('calendar.cancelling'), async () => {
                 const res = await fetch(apiPath(`/api/bookings/${id}`), { method: 'DELETE' });
                 if (!res.ok) {
                     const data = await res.json();
-                    throw new Error(data.error || 'Unable to cancel booking.');
+                    throw new Error(data.error || t('history.cancelError'));
                 }
-                const reload = await fetch(apiPath('/api/bookings'));
-                if (reload.ok) setBookings(await reload.json());
+                await loadBookings();
             });
-            await showAlert({ tone: 'success', title: 'Booking cancelled', message: 'The booking was cancelled successfully.' });
+            await showAlert({ tone: 'success', title: t('history.cancelledTitle'), message: t('history.cancelledMessage') });
         } catch (caughtError) {
-            await showAlert({ tone: 'error', title: 'Cancellation failed', message: caughtError instanceof Error ? caughtError.message : 'Error cancelling booking.' });
+            await showAlert({ tone: 'error', title: t('history.cancelFailedTitle'), message: caughtError instanceof Error ? caughtError.message : t('history.cancelError') });
         }
     };
 
     if (!mounted) return null;
+    if (isViewer) return <ViewerNotice pageKey="viewer.historyPage" />;
 
     return (
         <div className="max-w-6xl mx-auto space-y-6 animate-in slide-in-from-bottom-4 duration-500">
@@ -127,15 +141,16 @@ export default function BookingsListPage() {
                     <Link href="/" className="glass-button button-violet rounded-full p-2 text-white">
                         <ArrowLeft className="w-5 h-5" />
                     </Link>
-                    <h1 className="text-3xl font-bold text-white tracking-tight">Booking History</h1>
+                    <h1 className="text-3xl font-bold text-white tracking-tight">{t('history.title')}</h1>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                    <PlaceSelect places={places} value={placeId} disabled={!isAdmin} onChange={setPlaceId} />
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
                         <input
                             type="text"
-                            placeholder="Search title, place, room, user..."
+                            placeholder={t('history.searchPlaceholder')}
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="glass-input pl-10 pr-4 py-2 rounded-xl text-sm w-full md:w-64 outline-none"
@@ -146,7 +161,7 @@ export default function BookingsListPage() {
                         className="glass-button button-success flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white"
                     >
                         <Download className="w-4 h-4" />
-                        Export CSV
+                        {t('history.exportCsv')}
                     </button>
                 </div>
             </div>
@@ -156,11 +171,11 @@ export default function BookingsListPage() {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-white/5 border-b border-white/10 uppercase text-[10px] tracking-widest text-white/40">
-                                <th className="px-6 py-4 font-bold">Meeting Info</th>
-                                <th className="px-6 py-4 font-bold">Place / Room</th>
-                                <th className="px-6 py-4 font-bold">Booked By / Contact</th>
-                                <th className="px-6 py-4 font-bold">Date & Time</th>
-                                <th className="px-6 py-4 font-bold text-right">Actions</th>
+                                <th className="px-6 py-4 font-bold">{t('history.meetingInfo')}</th>
+                                <th className="px-6 py-4 font-bold">{t('history.placeRoom')}</th>
+                                <th className="px-6 py-4 font-bold">{t('history.bookedByContact')}</th>
+                                <th className="px-6 py-4 font-bold">{t('history.dateTime')}</th>
+                                <th className="px-6 py-4 font-bold text-right">{t('common.actions')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -172,7 +187,7 @@ export default function BookingsListPage() {
                                     <td className="px-6 py-4 text-white/60">
                                         <div className="flex items-center gap-2">
                                             <DoorOpen className="w-4 h-4 text-blue-400/60" />
-                                            <span>{booking.room?.place?.key || 'Unassigned'} / {booking.room?.name}</span>
+                                            <span>{booking.room?.place?.key || t('common.unassigned')} / {booking.room?.name}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
@@ -183,7 +198,7 @@ export default function BookingsListPage() {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="space-y-1">
-                                            <p className="text-white text-sm font-medium">{format(new Date(booking.startTime), 'MMM d, yyyy')}</p>
+                                            <p className="text-white text-sm font-medium">{formatDate(language, new Date(booking.startTime), { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                                             <p className="text-white/40 text-[11px] font-mono uppercase tracking-tighter">
                                                 {format(new Date(booking.startTime), 'HH:mm')} - {format(new Date(booking.endTime), 'HH:mm')}
                                             </p>
@@ -192,14 +207,14 @@ export default function BookingsListPage() {
                                     <td className="px-6 py-4 text-right">
                                         {new Date(booking.startTime) >= new Date() ? (
                                             <button
-                                                title="Cancel booking"
+                                                title={t('history.cancelTooltip')}
                                                 onClick={() => handleCancelBooking(booking.id)}
                                                 className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
                                         ) : (
-                                            <span className="text-[10px] uppercase font-bold text-white/10">Passed</span>
+                                            <span className="text-[10px] uppercase font-bold text-white/10">{t('history.passed')}</span>
                                         )}
                                     </td>
                                 </tr>
@@ -209,7 +224,7 @@ export default function BookingsListPage() {
                                     <td colSpan={5} className="px-6 py-20 text-center">
                                         <div className="flex flex-col items-center gap-2 text-white/20">
                                             <Search className="w-12 h-12" />
-                                            <p>No bookings found matching your search.</p>
+                                            <p>{t('history.empty')}</p>
                                         </div>
                                     </td>
                                 </tr>

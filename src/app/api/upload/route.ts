@@ -4,14 +4,9 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { assetPath } from '@/lib/paths';
 import { requireAdmin } from '@/lib/auth';
+import { UPLOAD_CONTENT_TYPES, UPLOAD_DIR, UPLOAD_URL_PREFIX } from '@/lib/uploads';
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES: Record<string, string> = {
-    'image/jpeg': '.jpg',
-    'image/png': '.png',
-    'image/webp': '.webp',
-    'image/gif': '.gif',
-};
 
 export async function POST(request: NextRequest) {
     try {
@@ -25,7 +20,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
         }
 
-        const extension = ALLOWED_IMAGE_TYPES[file.type];
+        const extension = UPLOAD_CONTENT_TYPES[file.type];
         if (!extension) {
             return NextResponse.json({ error: 'Only JPG, PNG, WebP, and GIF images are allowed' }, { status: 400 });
         }
@@ -37,9 +32,7 @@ export async function POST(request: NextRequest) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        const uploadDir = join(process.cwd(), 'public', 'uploads');
-
-        await mkdir(uploadDir, { recursive: true });
+        await mkdir(UPLOAD_DIR, { recursive: true });
 
         const safeBaseName = file.name
             .replace(/\.[^/.]+$/, '')
@@ -47,10 +40,9 @@ export async function POST(request: NextRequest) {
             .replace(/^-+|-+$/g, '')
             .slice(0, 48) || 'room-image';
         const filename = `${Date.now()}-${safeBaseName}-${randomUUID()}${extension}`;
-        const path = join(uploadDir, filename);
-        await writeFile(path, buffer);
+        await writeFile(join(UPLOAD_DIR, filename), buffer);
 
-        return NextResponse.json({ url: assetPath(`/uploads/${filename}`) });
+        return NextResponse.json({ url: assetPath(`${UPLOAD_URL_PREFIX}/${filename}`) });
     } catch (error) {
         console.error('Upload error:', error);
         return NextResponse.json({ error: 'Failed to upload image' }, { status: 500 });

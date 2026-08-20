@@ -5,6 +5,10 @@ import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInte
 import { Building2, ChevronLeft, ChevronRight, Clock, User, DoorOpen, Plus, Trash2, Eye, Phone, Save, X } from 'lucide-react';
 import { apiPath, assetPath } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
+import { PlaceSelect, usePlaceScope } from '@/components/place-scope';
+import { useSession } from '@/components/session-provider';
+import { useTranslation } from '@/components/translation-provider';
+import { formatDate, weekdayNames } from '@/lib/i18n';
 
 interface Room {
   id: string;
@@ -24,28 +28,16 @@ interface Booking {
   room: Room;
 }
 
-interface Place {
-  id: string;
-  key: string;
-}
-
-interface SessionUser {
-  role: string;
-  placeId?: string;
-  placeName?: string;
-}
-
-const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
 export default function CalendarPage() {
   const { showAlert, showConfirm, withLoading } = useFeedback();
+  const { canBook } = useSession();
+  const { t, language } = useTranslation();
+  const DAYS_OF_WEEK = weekdayNames(language);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [rooms, setRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [places, setPlaces] = useState<Place[]>([]);
-  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
-  const [selectedPlaceId, setSelectedPlaceId] = useState('');
+  const { places, placeId: selectedPlaceId, setPlaceId: setSelectedPlaceId, isAdmin, ready: placesReady } = usePlaceScope();
   const [filterSelectedRoom, setFilterSelectedRoom] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
   const [isRoomLocked, setIsRoomLocked] = useState(false);
@@ -71,54 +63,29 @@ export default function CalendarPage() {
         fetch(`${apiPath('/api/rooms')}${suffix}`),
         fetch(`${apiPath('/api/bookings')}${suffix}`)
       ]);
-      if (!roomsRes.ok || !bookingsRes.ok) throw new Error('Unable to load calendar data.');
+      if (!roomsRes.ok || !bookingsRes.ok) throw new Error(t('calendar.loadFailMessage'));
       const roomsData = await roomsRes.json();
       const bookingsData = await bookingsRes.json();
       setRooms(roomsData);
       setBookings(bookingsData);
     };
     if (showSpinner) {
-      await withLoading('Loading calendar...', load);
+      await withLoading(t('calendar.loading'), load);
     } else {
       await load();
     }
-  }, [withLoading]);
+  }, [withLoading, t]);
 
   useEffect(() => {
     setMounted(true);
-    const initialize = async () => {
-      try {
-        await withLoading('Loading places...', async () => {
-          const [userRes, placesRes] = await Promise.all([
-            fetch(apiPath('/api/auth/me')),
-            fetch(apiPath('/api/places')),
-          ]);
-          if (!userRes.ok || !placesRes.ok) throw new Error('Unable to load places.');
-          const userData = await userRes.json();
-          const placesData = await placesRes.json();
-          const user = userData.user as SessionUser | null;
-          setCurrentUser(user);
-          setPlaces(placesData);
-          if (user?.role === 'place' && user.placeId) {
-            setSelectedPlaceId(user.placeId);
-          } else if (placesData.length > 0) {
-            setSelectedPlaceId(placesData[0].id);
-          }
-        });
-      } catch {
-        await showAlert({ tone: 'error', title: 'Unable to load places', message: 'Please refresh and try again.' });
-      }
-    };
-    void initialize();
-  }, [showAlert, withLoading]);
+  }, []);
 
   useEffect(() => {
-    if (currentUser && (selectedPlaceId || currentUser.role !== 'admin')) {
-      void fetchData(selectedPlaceId).catch(() => {
-        void showAlert({ tone: 'error', title: 'Unable to load calendar', message: 'Rooms and bookings could not be loaded.' });
-      });
-    }
-  }, [currentUser, selectedPlaceId, fetchData, showAlert]);
+    if (!placesReady) return;
+    void fetchData(selectedPlaceId).catch(() => {
+      void showAlert({ tone: 'error', title: t('calendar.loadFailTitle'), message: t('calendar.loadFailMessage') });
+    });
+  }, [placesReady, selectedPlaceId, fetchData, showAlert, t]);
 
   useEffect(() => {
     if (filterSelectedRoom !== 'all' && !rooms.some((room) => room.id === filterSelectedRoom)) {
@@ -189,21 +156,21 @@ export default function CalendarPage() {
     end.setHours(parseInt(endH), parseInt(endM));
 
     if (end <= start) {
-      setError('End time must be after start time');
-      await showAlert({ tone: 'error', title: 'Invalid booking time', message: 'End time must be after start time.' });
+      setError(t('calendar.invalidTimeMessage'));
+      await showAlert({ tone: 'error', title: t('calendar.invalidTimeTitle'), message: t('calendar.invalidTimeMessage') });
       setLoading(false);
       return;
     }
 
     if (start < new Date()) {
-      setError('Cannot book in the past');
-      await showAlert({ tone: 'error', title: 'Invalid booking date', message: 'A booking cannot be created in the past.' });
+      setError(t('calendar.invalidDateMessage'));
+      await showAlert({ tone: 'error', title: t('calendar.invalidDateTitle'), message: t('calendar.invalidDateMessage') });
       setLoading(false);
       return;
     }
 
     try {
-      await withLoading('Saving booking...', async () => {
+      await withLoading(t('calendar.saving'), async () => {
         const res = await fetch(apiPath('/api/bookings'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -220,7 +187,7 @@ export default function CalendarPage() {
         });
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to book room');
+        if (!res.ok) throw new Error(data.error || t('calendar.failedTitle'));
         await fetchData(selectedPlaceId, false);
       });
       setLoading(false);
@@ -228,12 +195,12 @@ export default function CalendarPage() {
       setTitle('');
       setRoomId('');
       setUsername('');
-      await showAlert({ tone: 'success', title: 'Booking saved', message: 'The meeting room booking was created successfully.' });
+      await showAlert({ tone: 'success', title: t('calendar.savedTitle'), message: t('calendar.savedMessage') });
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'An error occurred';
+      const message = caughtError instanceof Error ? caughtError.message : t('calendar.genericError');
       setError(message);
       setLoading(false);
-      await showAlert({ tone: 'error', title: 'Booking failed', message });
+      await showAlert({ tone: 'error', title: t('calendar.failedTitle'), message });
     } finally {
       setLoading(false);
     }
@@ -241,32 +208,32 @@ export default function CalendarPage() {
 
   const handleCancelBooking = async (booking: Booking) => {
     if (new Date(booking.startTime) < new Date()) {
-      await showAlert({ tone: 'error', title: 'Cannot cancel booking', message: 'Bookings that have already started or passed cannot be cancelled.' });
+      await showAlert({ tone: 'error', title: t('calendar.cannotCancelTitle'), message: t('calendar.cannotCancelMessage') });
       return;
     }
     const confirmed = await showConfirm({
-      title: 'Cancel this booking?',
-      message: `This will remove "${booking.title}" from the schedule.`,
-      confirmLabel: 'Cancel Booking',
+      title: t('calendar.cancelTitle'),
+      message: t('calendar.cancelMessage', { title: booking.title }),
+      confirmLabel: t('calendar.cancelConfirm'),
       tone: 'danger',
     });
     if (!confirmed) return;
 
     try {
-      await withLoading('Cancelling booking...', async () => {
+      await withLoading(t('calendar.cancelling'), async () => {
         const res = await fetch(apiPath(`/api/bookings/${booking.id}`), {
           method: 'DELETE'
         });
         if (!res.ok) {
           const data = await res.json();
-          throw new Error(data.error || 'Failed to cancel booking');
+          throw new Error(data.error || t('calendar.cancelFailedTitle'));
         }
         await fetchData(selectedPlaceId, false);
       });
-      await showAlert({ tone: 'success', title: 'Booking cancelled', message: 'The booking has been removed from the schedule.' });
+      await showAlert({ tone: 'success', title: t('calendar.cancelledTitle'), message: t('calendar.cancelledMessage') });
     } catch (caughtError) {
-      const message = caughtError instanceof Error ? caughtError.message : 'An error occurred while cancelling the booking';
-      await showAlert({ tone: 'error', title: 'Cancellation failed', message });
+      const message = caughtError instanceof Error ? caughtError.message : t('calendar.genericError');
+      await showAlert({ tone: 'error', title: t('calendar.cancelFailedTitle'), message });
     }
   };
 
@@ -279,51 +246,45 @@ export default function CalendarPage() {
         <div className="glass-card p-6">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-3xl font-bold text-white uppercase tracking-wider">
-              {format(currentMonth, 'MMMM yyyy')}
+              {formatDate(language, currentMonth, { month: 'long', year: 'numeric' })}
             </h2>
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <label data-tour="place-selector" className="relative">
-                <Building2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-300" />
-                <select
-                  aria-label="Place"
-                  value={selectedPlaceId}
-                  onChange={(event) => {
-                    setSelectedPlaceId(event.target.value);
-                    setFilterSelectedRoom('all');
-                  }}
-                  disabled={currentUser?.role !== 'admin'}
-                  className="glass-input min-w-[185px] rounded-full bg-slate-800 py-3 pl-11 pr-9 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {places.length === 0 ? <option value="">No Places</option> : null}
-                  {places.map((place) => <option key={place.id} value={place.id}>{place.key}</option>)}
-                </select>
-              </label>
+              <PlaceSelect
+                tourId="place-selector"
+                places={places}
+                value={selectedPlaceId}
+                disabled={!isAdmin}
+                onChange={(value) => {
+                  setSelectedPlaceId(value);
+                  setFilterSelectedRoom('all');
+                }}
+              />
               <label data-tour="room-selector" className="relative">
                 <DoorOpen className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-300" />
                 <select
-                  aria-label="Meeting Room"
+                  aria-label={t('calendar.meetingRoom')}
                   value={filterSelectedRoom}
                   onChange={(event) => setFilterSelectedRoom(event.target.value)}
                   className="glass-input min-w-[185px] rounded-full bg-slate-800 py-3 pl-11 pr-9 text-sm text-white outline-none"
                 >
-                  <option value="all">All Rooms</option>
+                  <option value="all">{t('calendar.allRooms')}</option>
                   {rooms.map(room => (
                     <option key={room.id} value={room.id}>{room.name}</option>
                   ))}
                 </select>
               </label>
-              <button type="button" title="Previous month" onClick={handlePrevMonth} className="glass-button button-violet rounded-full p-3 text-white">
+              <button type="button" title={t('calendar.prevMonth')} onClick={handlePrevMonth} className="glass-button button-violet rounded-full p-3 text-white">
                 <ChevronLeft className="w-6 h-6" />
               </button>
-              <button type="button" title="Next month" onClick={handleNextMonth} className="glass-button button-violet rounded-full p-3 text-white">
+              <button type="button" title={t('calendar.nextMonth')} onClick={handleNextMonth} className="glass-button button-violet rounded-full p-3 text-white">
                 <ChevronRight className="w-6 h-6" />
               </button>
             </div>
           </div>
 
           <div className="grid grid-cols-7 mb-4">
-            {DAYS_OF_WEEK.map(day => (
-              <div key={day} className={`text-center font-bold text-sm uppercase ${(day === 'Sun' || day === 'Sat') ? 'text-red-400' : 'text-white/40'}`}>
+            {DAYS_OF_WEEK.map((day, index) => (
+              <div key={day} className={`text-center font-bold text-sm uppercase ${(index === 0 || index === 6) ? 'text-red-400' : 'text-white/40'}`}>
                 {day}
               </div>
             ))}
@@ -366,7 +327,7 @@ export default function CalendarPage() {
                       </div>
                     ))}
                     {dayBookings.length > 3 && (
-                      <span className="text-[9px] text-white/40 font-medium px-1">+{dayBookings.length - 3} more</span>
+                      <span className="text-[9px] text-white/40 font-medium px-1">+{t('calendar.more', { count: dayBookings.length - 3 })}</span>
                     )}
                   </div>
                 </div>
@@ -381,14 +342,14 @@ export default function CalendarPage() {
         <div className="glass-card p-6 h-full flex flex-col">
           <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
             <Clock className="w-5 h-5 text-blue-400" />
-            Agenda for {format(selectedDate, 'MMM d')}
+            {t('calendar.agendaFor', { date: formatDate(language, selectedDate, { day: 'numeric', month: 'short' }) })}
           </h3>
           <div className="space-y-6 flex-1 overflow-y-auto pr-2 scrollbar-thin">
             {Object.entries((bookingsByDate[format(selectedDate, 'yyyy-MM-dd')] || []).reduce((acc: Record<string, { name: string, image: string | null | undefined, bookings: Booking[] }>, booking) => {
               const rId = booking.roomId;
               if (!acc[rId]) {
                 acc[rId] = {
-                  name: booking.room?.name || 'Unknown Room',
+                  name: booking.room?.name || t('calendar.room'),
                   image: booking.room?.image,
                   bookings: []
                 };
@@ -400,6 +361,7 @@ export default function CalendarPage() {
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-lg overflow-hidden border border-white/10 shrink-0">
                     {roomData.image ? (
+                      /* eslint-disable-next-line @next/next/no-img-element -- served by the authenticated /api/uploads route */
                       <img src={assetPath(roomData.image)} alt={roomData.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full bg-white/5 flex items-center justify-center">
@@ -412,13 +374,13 @@ export default function CalendarPage() {
                       <span className="text-blue-400 font-bold text-xs uppercase tracking-widest block">
                         {roomData.name}
                       </span>
-                      {(isSameDay(selectedDate, new Date()) || selectedDate > new Date()) && (
+                      {canBook && (isSameDay(selectedDate, new Date()) || selectedDate > new Date()) && (
                         <button
                           onClick={() => openBookingModal(roomId, true)}
                           className="flex items-center gap-1 rounded-md border border-amber-400/25 bg-amber-400/15 px-2 py-1 text-[10px] font-bold text-amber-300 transition-all hover:bg-amber-400/25"
                         >
                           <Plus className="w-3 h-3" />
-                          Book
+                          {t('calendar.book')}
                         </button>
                       )}
                     </div>
@@ -450,11 +412,11 @@ export default function CalendarPage() {
                             ) : null}
                           </div>
                         </div>
-                        {new Date(booking.startTime) >= new Date() && (
+                        {canBook && new Date(booking.startTime) >= new Date() && (
                           <button
                             onClick={() => handleCancelBooking(booking)}
                             className="rounded-lg bg-rose-500/10 p-1.5 text-rose-300/60 opacity-0 transition-all hover:bg-rose-500/25 hover:text-rose-200 group-hover:opacity-100"
-                            title="Cancel Booking"
+                            title={t('calendar.cancelTooltip')}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -471,40 +433,46 @@ export default function CalendarPage() {
                 <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
                   <Clock className="w-6 h-6 text-white/20" />
                 </div>
-                <p className="text-white/40 text-sm">No bookings scheduled for today.</p>
+                <p className="text-white/40 text-sm">{t('calendar.noBookings')}</p>
               </div>
             )}
           </div>
-          {(isSameDay(selectedDate, new Date()) || selectedDate > new Date()) && (
+          {canBook && (isSameDay(selectedDate, new Date()) || selectedDate > new Date()) && (
             <button type="button"
               data-tour="new-booking"
               onClick={() => openBookingModal('', false)}
               className="glass-button button-warning mt-6 flex w-full items-center justify-center gap-2 rounded-xl p-4 text-sm font-bold"
             >
               <Plus className="w-4 h-4" />
-              New Booking
+              {t('calendar.newBooking')}
             </button>
           )}
         </div>
       </div>
 
-      {/* Booking Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="glass-card w-full max-w-md p-8 relative">
+      {/*
+        Booking Modal. The overlay scrolls, not the card: with a room image the form
+        is taller than a phone screen, and a centred non-scrolling box pushes the
+        confirm buttons off the bottom. z-140 keeps it above the accessibility bar.
+      */}
+      {showModal && canBook && (
+        <div className="fixed inset-0 z-[140] overflow-y-auto p-4 bg-black/60 backdrop-blur-sm">
+          <div className="flex min-h-full items-center justify-center">
+          <div className="glass-card w-full max-w-md p-6 sm:p-8 relative">
             <button type="button"
               onClick={() => setShowModal(false)}
               className="absolute top-4 right-4 text-white/40 hover:text-white"
-              title="Close"
+              title={t('common.close')}
             >
               <X className="h-6 w-6" />
             </button>
-            <h2 className="text-2xl font-bold text-white mb-6">Book for {format(selectedDate, 'MMMM d, yyyy')}</h2>
+            <h2 className="text-2xl font-bold text-white mb-6">{t('calendar.bookFor', { date: formatDate(language, selectedDate, { day: 'numeric', month: 'long', year: 'numeric' }) })}</h2>
             <form onSubmit={handleBookingSubmit} className="space-y-4">
               {error && <div className="p-3 bg-red-500/20 border border-red-500/40 text-red-200 text-sm rounded-lg">{error}</div>}
 
               {roomId && selectedRoomData?.image && (
                 <div className="w-full h-32 rounded-xl overflow-hidden mb-4 border border-white/10 shadow-inner group">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- served by the authenticated /api/uploads route */}
                   <img
                     src={assetPath(selectedRoomData.image)}
                     alt={selectedRoomData.name}
@@ -514,14 +482,14 @@ export default function CalendarPage() {
               )}
 
               <div>
-                <label className="block text-white/80 mb-1 text-sm">Place</label>
+                <label className="block text-white/80 mb-1 text-sm">{t('place.label')}</label>
                 <div className="glass-input flex items-center gap-2 rounded-lg p-2 text-white/70">
                   <Building2 className="h-4 w-4 text-sky-400" />
-                  {places.find((place) => place.id === selectedPlaceId)?.key || 'Select a place first'}
+                  {places.find((place) => place.id === selectedPlaceId)?.key || t('calendar.selectPlaceFirst')}
                 </div>
               </div>
               <div>
-                <label className="block text-white/80 mb-1 text-sm">Room</label>
+                <label className="block text-white/80 mb-1 text-sm">{t('calendar.room')}</label>
                 <select
                   value={roomId}
                   onChange={(e) => setRoomId(e.target.value)}
@@ -529,26 +497,26 @@ export default function CalendarPage() {
                   disabled={isRoomLocked}
                   required
                 >
-                  <option value="" className="bg-slate-800 text-white">Select a room</option>
+                  <option value="" className="bg-slate-800 text-white">{t('calendar.selectRoom')}</option>
                   {rooms.map(room => (
                     <option key={room.id} value={room.id} className="bg-slate-800 text-white">{room.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-white/80 mb-1 text-sm">Booking Title</label>
+                <label className="block text-white/80 mb-1 text-sm">{t('calendar.bookingTitle')}</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full glass-input p-2 rounded-lg outline-hidden"
-                  placeholder="Meeting Title"
+                  placeholder={t('calendar.bookingTitlePlaceholder')}
                   required
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-white/80 mb-1 text-sm">Start Time (24h)</label>
+                  <label className="block text-white/80 mb-1 text-sm">{t('calendar.startTime')}</label>
                   <select
                     value={startTime}
                     onChange={(e) => {
@@ -558,14 +526,14 @@ export default function CalendarPage() {
                     className="w-full glass-input p-2 rounded-lg outline-hidden bg-slate-800 text-white"
                     required
                   >
-                    <option value="" className="bg-slate-800">Select Start</option>
+                    <option value="" className="bg-slate-800">{t('calendar.selectStart')}</option>
                     {timeOptions.map(t => (
                       <option key={t} value={t} className="bg-slate-800">{t}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-white/80 mb-1 text-sm">End Time (24h)</label>
+                  <label className="block text-white/80 mb-1 text-sm">{t('calendar.endTime')}</label>
                   <select
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
@@ -573,7 +541,7 @@ export default function CalendarPage() {
                     disabled={!startTime}
                     required
                   >
-                    <option value="" className="bg-slate-800">Select End</option>
+                    <option value="" className="bg-slate-800">{t('calendar.selectEnd')}</option>
                     {timeOptions
                       .filter(t => !startTime || t > startTime)
                       .map(t => (
@@ -583,18 +551,18 @@ export default function CalendarPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-white/80 mb-1 text-sm">Booked By (Name)</label>
+                <label className="block text-white/80 mb-1 text-sm">{t('calendar.bookedBy')}</label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full glass-input p-2 rounded-lg outline-hidden"
-                  placeholder="Your Name"
+                  placeholder={t('calendar.bookedByPlaceholder')}
                   required
                 />
               </div>
               <div>
-                <label className="block text-white/80 mb-1 text-sm">Contact</label>
+                <label className="block text-white/80 mb-1 text-sm">{t('calendar.contact')}</label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
                   <input
@@ -602,46 +570,54 @@ export default function CalendarPage() {
                     value={contact}
                     onChange={(event) => setContact(event.target.value)}
                     className="w-full glass-input p-2 pl-10 rounded-lg outline-hidden"
-                    placeholder="Phone, Line ID or email"
+                    placeholder={t('calendar.contactPlaceholder')}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-4">
                 <div>
-                  <label className="block text-white/80 mb-1 text-sm">Repeat</label>
+                  <label className="block text-white/80 mb-1 text-sm">{t('calendar.repeat')}</label>
                   <select
                     value={repeatType}
                     onChange={(e) => setRepeatType(e.target.value)}
                     className="w-full glass-input p-2 rounded-lg outline-hidden bg-slate-800 text-white text-sm"
                   >
-                    <option value="none" className="bg-slate-800">No Repeat</option>
-                    <option value="daily" className="bg-slate-800">Daily</option>
-                    <option value="weekly" className="bg-slate-800">Weekly</option>
+                    <option value="none" className="bg-slate-800">{t('calendar.noRepeat')}</option>
+                    <option value="daily" className="bg-slate-800">{t('calendar.daily')}</option>
+                    <option value="weekly" className="bg-slate-800">{t('calendar.weekly')}</option>
                   </select>
                 </div>
                 {repeatType !== 'none' && (
                   <div className="animate-in slide-in-from-right-2 duration-300">
-                    <label className="block text-white/80 mb-1 text-sm">Times</label>
+                    <label className="block text-white/80 mb-1 text-sm">{t('calendar.times')}</label>
                     <input
                       type="number"
                       min="2"
                       max="10"
                       value={repeatCount}
-                      onChange={(e) => setRepeatCount(parseInt(e.target.value))}
+                      onChange={(e) => {
+                        const parsed = Number.parseInt(e.target.value, 10);
+                        setRepeatCount(Number.isFinite(parsed) ? Math.min(10, Math.max(1, parsed)) : 1);
+                      }}
                       className="w-full glass-input p-2 rounded-lg outline-hidden text-sm"
                     />
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-4 mt-6">
+              {/*
+                Sticky so the actions stay on screen while the rest of the form
+                scrolls — otherwise a tall form leaves them below the fold and the
+                user has to discover the scroll before they can confirm.
+              */}
+              <div className="sticky bottom-0 grid grid-cols-2 gap-4 mt-6 rounded-xl bg-slate-900/85 p-2 backdrop-blur-sm">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
                   className="glass-button button-neutral flex items-center justify-center gap-2 rounded-xl p-3 font-bold"
                 >
                   <X className="h-4 w-4" />
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -649,10 +625,11 @@ export default function CalendarPage() {
                   className="glass-button button-success flex items-center justify-center gap-2 rounded-xl p-3 font-bold"
                 >
                   <Save className="h-4 w-4" />
-                  {loading ? 'Processing...' : 'Confirm'}
+                  {loading ? t('common.processing') : t('common.confirm')}
                 </button>
               </div>
             </form>
+          </div>
           </div>
         </div>
       )}

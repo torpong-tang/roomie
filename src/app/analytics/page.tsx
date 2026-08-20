@@ -1,11 +1,15 @@
 'use client';
 
 import { useCallback, useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from 'date-fns';
-import { BarChart3, TrendingUp, Calendar as CalendarIcon, Users, ArrowLeft, Download } from 'lucide-react';
+import { isSameMonth } from 'date-fns';
+import { BarChart3, TrendingUp, Calendar as CalendarIcon, Users, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { apiPath } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
+import { PlaceSelect, usePlaceScope } from '@/components/place-scope';
+import { useSession } from '@/components/session-provider';
+import { ViewerNotice } from '@/components/viewer-notice';
+import { useTranslation } from '@/components/translation-provider';
 
 interface Room {
     id: string;
@@ -29,33 +33,42 @@ export default function AnalyticsPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [rooms, setRooms] = useState<Room[]>([]);
     const [loading, setLoading] = useState(true);
+    const { places, placeId, setPlaceId, isAdmin, ready: placesReady } = usePlaceScope();
+    const { isViewer } = useSession();
+    const { t } = useTranslation();
 
     const fetchData = useCallback(async () => {
         try {
-            await withLoading('Loading analytics...', async () => {
+            await withLoading(t('insights.loading'), async () => {
+                const suffix = placeId ? `?placeId=${encodeURIComponent(placeId)}` : '';
                 const [roomsRes, bookingsRes] = await Promise.all([
-                    fetch(apiPath('/api/rooms')),
-                    fetch(apiPath('/api/bookings'))
+                    fetch(`${apiPath('/api/rooms')}${suffix}`),
+                    fetch(`${apiPath('/api/bookings')}${suffix}`)
                 ]);
-                if (!roomsRes.ok || !bookingsRes.ok) throw new Error('Unable to load analytics.');
+                if (!roomsRes.ok || !bookingsRes.ok) throw new Error(t('insights.loadFailMessage'));
                 const roomsData = await roomsRes.json();
                 const bookingsData = await bookingsRes.json();
                 setRooms(roomsData);
                 setBookings(bookingsData);
             });
         } catch {
-            await showAlert({ tone: 'error', title: 'Unable to load analytics', message: 'Insights could not be loaded at this time.' });
+            await showAlert({ tone: 'error', title: t('insights.loadFailTitle'), message: t('insights.loadFailMessage') });
         } finally {
             setLoading(false);
         }
-    }, [showAlert, withLoading]);
+    }, [placeId, showAlert, withLoading, t]);
 
     useEffect(() => {
         setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!placesReady) return;
         void fetchData();
-    }, [fetchData]);
+    }, [placesReady, fetchData]);
 
     if (!mounted) return null;
+    if (isViewer) return <ViewerNotice pageKey="viewer.insightsPage" />;
 
     // Analytics Calculations
     const totalBookings = bookings.length;
@@ -96,9 +109,10 @@ export default function AnalyticsPage() {
                     </Link>
                     <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
                         <BarChart3 className="w-8 h-8 text-blue-400" />
-                        Insights & Analytics
+                        {t('insights.title')}
                     </h1>
                 </div>
+                <PlaceSelect places={places} value={placeId} disabled={!isAdmin} onChange={setPlaceId} />
             </div>
 
             {/* Overview Cards */}
@@ -106,7 +120,7 @@ export default function AnalyticsPage() {
                 <div className="glass-card p-6 border-l-4 border-blue-500">
                     <div className="flex justify-between items-start">
                         <div>
-                            <p className="text-white/40 text-sm font-medium uppercase tracking-wider">Total Bookings</p>
+                            <p className="text-white/40 text-sm font-medium uppercase tracking-wider">{t('insights.totalBookings')}</p>
                             <h2 className="text-4xl font-bold text-white mt-1">{totalBookings}</h2>
                         </div>
                         <div className="p-3 bg-blue-500/10 rounded-xl">
@@ -115,47 +129,47 @@ export default function AnalyticsPage() {
                     </div>
                     <p className="text-blue-400/60 text-xs mt-4 flex items-center gap-1">
                         <TrendingUp className="w-3 h-3" />
-                        All-time system usage
+                        {t('insights.allTime')}
                     </p>
                 </div>
 
                 <div className="glass-card p-6 border-l-4 border-indigo-500">
                     <div className="flex justify-between items-start">
                         <div>
-                            <p className="text-white/40 text-sm font-medium uppercase tracking-wider">This Month</p>
+                            <p className="text-white/40 text-sm font-medium uppercase tracking-wider">{t('insights.thisMonth')}</p>
                             <h2 className="text-4xl font-bold text-white mt-1">{currentMonthBookings}</h2>
                         </div>
                         <div className="p-3 bg-indigo-500/10 rounded-xl">
                             <TrendingUp className="w-6 h-6 text-indigo-400" />
                         </div>
                     </div>
-                    <p className="text-indigo-400/60 text-xs mt-4">Current activity level</p>
+                    <p className="text-indigo-400/60 text-xs mt-4">{t('insights.currentActivity')}</p>
                 </div>
 
                 <div className="glass-card p-6 border-l-4 border-purple-500">
                     <div className="flex justify-between items-start">
                         <div>
-                            <p className="text-white/40 text-sm font-medium uppercase tracking-wider">Most Popular Time</p>
+                            <p className="text-white/40 text-sm font-medium uppercase tracking-wider">{t('insights.popularTime')}</p>
                             <h2 className="text-4xl font-bold text-white mt-1">{peakHour.hour}:00</h2>
                         </div>
                         <div className="p-3 bg-purple-500/10 rounded-xl">
                             <TrendingUp className="w-6 h-6 text-purple-400" />
                         </div>
                     </div>
-                    <p className="text-purple-400/60 text-xs mt-4">Peak booking hour</p>
+                    <p className="text-purple-400/60 text-xs mt-4">{t('insights.peakHour')}</p>
                 </div>
 
                 <div className="glass-card p-6 border-l-4 border-emerald-500">
                     <div className="flex justify-between items-start">
                         <div>
-                            <p className="text-white/40 text-sm font-medium uppercase tracking-wider">Active Rooms</p>
+                            <p className="text-white/40 text-sm font-medium uppercase tracking-wider">{t('insights.activeRooms')}</p>
                             <h2 className="text-4xl font-bold text-white mt-1">{rooms.length}</h2>
                         </div>
                         <div className="p-3 bg-emerald-500/10 rounded-xl">
                             <Users className="w-6 h-6 text-emerald-400" />
                         </div>
                     </div>
-                    <p className="text-emerald-400/60 text-xs mt-4">Available for booking</p>
+                    <p className="text-emerald-400/60 text-xs mt-4">{t('insights.availableForBooking')}</p>
                 </div>
             </div>
 
@@ -165,7 +179,7 @@ export default function AnalyticsPage() {
                     <div className="flex items-center justify-between mb-8">
                         <h3 className="text-xl font-bold text-white flex items-center gap-2">
                             <TrendingUp className="w-5 h-5 text-blue-400" />
-                            Room Popularity
+                            {t('insights.roomPopularity')}
                         </h3>
                     </div>
                     <div className="space-y-6">
@@ -173,7 +187,7 @@ export default function AnalyticsPage() {
                             <div key={idx} className="space-y-2">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-white/80 font-medium">{stat.name}</span>
-                                    <span className="text-blue-400 font-bold">{stat.count} bookings</span>
+                                    <span className="text-blue-400 font-bold">{t('insights.bookingsCount', { count: stat.count })}</span>
                                 </div>
                                 <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
                                     <div
@@ -190,7 +204,7 @@ export default function AnalyticsPage() {
                 <div className="glass-card p-8">
                     <h3 className="text-xl font-bold text-white mb-8 flex items-center gap-2">
                         <BarChart3 className="w-5 h-5 text-indigo-400" />
-                        Usage by Hour (24h)
+                        {t('insights.usageByHour')}
                     </h3>
                     <div className="flex items-end justify-between h-48 gap-px">
                         {hourStats.map((stat, idx) => {
@@ -202,7 +216,7 @@ export default function AnalyticsPage() {
                                         style={{ height: `${height}%` }}
                                     >
                                         <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                                            {stat.count} books
+                                            {t('insights.booksCount', { count: stat.count })}
                                         </div>
                                     </div>
                                     <span className="text-[10px] text-white/20 mt-2 font-mono">{stat.hour}</span>
@@ -212,7 +226,7 @@ export default function AnalyticsPage() {
                     </div>
                     <div className="flex justify-between items-center mt-6 pt-6 border-t border-white/10">
                         <span className="text-white/40 text-xs">00:00</span>
-                        <span className="text-white/40 text-xs">Middle of Day</span>
+                        <span className="text-white/40 text-xs">{t('insights.middleOfDay')}</span>
                         <span className="text-white/40 text-xs">23:00</span>
                     </div>
                 </div>

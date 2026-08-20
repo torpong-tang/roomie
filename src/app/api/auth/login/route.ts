@@ -1,33 +1,79 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAccessCode, normalizeEmail, normalizePlaceKey, setAuthCookie, verifyAccessCode } from '@/lib/auth';
+import {
+    constantTimeEquals,
+    getAccessCode,
+    normalizeEmail,
+    normalizePlaceKey,
+    setAuthCookie,
+    verifyAccessCode,
+} from '@/lib/auth';
+import { consumeAttempt, getClientIp, resetAttempts } from '@/lib/rate-limit';
+
+const ATTEMPT_LIMIT = 10;
+const ATTEMPT_WINDOW_MS = 5 * 60 * 1000;
 
 export async function POST(request: Request) {
-    const body = await request.json();
+    const ip = getClientIp(request);
+    const ipLimit = consumeAttempt(`login:ip:${ip}`, { limit: ATTEMPT_LIMIT, windowMs: ATTEMPT_WINDOW_MS });
+    if (!ipLimit.allowed) {
+        return NextResponse.json(
+            { error: 'Too many sign-in attempts. Please try again later.' },
+            { status: 429, headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) } }
+        );
+    }
+
+    let body: Record<string, unknown>;
+    try {
+        body = await request.json();
+    } catch {
+        return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+
     const identifier = String(body.email || '').trim();
-    const email = normalizeEmail(identifier);
     const accessCode = String(body.accessCode || '').trim();
 
     if (!identifier || !accessCode) {
         return NextResponse.json({ error: 'Place/Email and access code are required' }, { status: 400 });
     }
 
-    const appUser = await prisma.appUser.findUnique({ where: { email } });
-    if (appUser?.isActive && appUser.role === 'admin') {
-        if (accessCode !== getAccessCode()) {
+    const identifierLimit = consumeAttempt(`login:id:${normalizePlaceKey(identifier)}`, {
+        limit: ATTEMPT_LIMIT,
+        windowMs: ATTEMPT_WINDOW_MS,
+    });
+    if (!identifierLimit.allowed) {
+        return NextResponse.json(
+            { error: 'Too many sign-in attempts for this account. Please try again later.' },
+            { status: 429, headers: { 'Retry-After': String(identifierLimit.retryAfterSeconds) } }
+        );
+    }
+
+    const succeed = (payload: Parameters<typeof setAuthCookie>[1]) => {
+        resetAttempts(`login:ip:${ip}`);
+        resetAttempts(`login:id:${normalizePlaceKey(identifier)}`);
+        const response = NextResponse.json({ user: payload });
+        setAuthCookie(response, payload);
+        return response;
+    };
+
+    const appUser = await prisma.appUser.findUnique({ where: { email: normalizeEmail(identifier) } });
+    if (appUser?.isActive) {
+        if (!constantTimeEquals(accessCode, getAccessCode())) {
             return NextResponse.json({ error: 'Access code is incorrect' }, { status: 401 });
         }
-        const response = NextResponse.json({ user: { email: appUser.email, role: appUser.role } });
-        setAuthCookie(response, { email: appUser.email, role: 'admin' });
-        return response;
+        return succeed({ email: appUser.email, role: 'admin' });
     }
 
     const place = await prisma.place.findUnique({ where: { key: normalizePlaceKey(identifier) } });
-    if (!place || !place.isActive || !verifyAccessCode(accessCode, place.accessCodeHash)) {
-        return NextResponse.json({ error: 'Place/Email or access code is incorrect' }, { status: 401 });
+    if (place?.isActive) {
+        if (verifyAccessCode(accessCode, place.accessCodeHash)) {
+            return succeed({ email: place.key, role: 'place', placeId: place.id, placeName: place.key });
+        }
+        // The optional view code grants the same place, but read-only.
+        if (place.viewCodeHash && verifyAccessCode(accessCode, place.viewCodeHash)) {
+            return succeed({ email: place.key, role: 'viewer', placeId: place.id, placeName: place.key });
+        }
     }
 
-    const response = NextResponse.json({ user: { email: place.key, role: 'place', placeId: place.id, placeName: place.key } });
-    setAuthCookie(response, { email: place.key, role: 'place', placeId: place.id, placeName: place.key });
-    return response;
+    return NextResponse.json({ error: 'Place/Email or access code is incorrect' }, { status: 401 });
 }
