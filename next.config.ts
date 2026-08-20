@@ -11,6 +11,7 @@ const basePath = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH);
 const configuredApiProxyOrigin = process.env.ROOMIE_API_PROXY_URL?.trim().replace(/\/+$/, "");
 const apiProxyOrigin = configuredApiProxyOrigin
   || (process.env.VERCEL === "1" ? "https://2startup.cloud/roomie" : undefined);
+const isVercel = process.env.VERCEL === "1";
 
 const nextConfig: NextConfig = {
   experimental: {
@@ -18,7 +19,9 @@ const nextConfig: NextConfig = {
   },
   basePath,
   assetPrefix: basePath || undefined,
-  output: "standalone",
+  // Vercel owns its server trace/output. Standalone packaging is only for the
+  // VPS process started by PM2; enabling it on Vercel breaks onBuildComplete.
+  ...(isVercel ? {} : { output: "standalone" as const }),
   async rewrites() {
     if (!apiProxyOrigin) return { beforeFiles: [], afterFiles: [], fallback: [] };
 
