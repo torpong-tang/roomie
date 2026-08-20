@@ -25,10 +25,30 @@ export const apiPath = (path: string) => {
     return apiOrigin ? `${apiOrigin}${normalizedPath}` : appPath(normalizedPath);
 };
 
-export const apiFetch = (path: string, init: RequestInit = {}) => fetch(apiPath(path), {
-    ...init,
-    credentials: 'include',
-});
+const withApiRevision = (path: string, method?: string) => {
+    if (method && method.toUpperCase() !== 'GET') return path;
+    const separator = path.includes('?') ? '&' : '?';
+    return `${path}${separator}roomieApi=v2`;
+};
+
+export const apiFetch = (path: string, init: RequestInit = {}) => fetch(
+    apiPath(withApiRevision(path, init.method)),
+    {
+        ...init,
+        credentials: 'include',
+        cache: 'no-store',
+    }
+);
+
+export const readJson = async <T>(response: Response): Promise<T> => {
+    const contentType = response.headers.get('content-type')?.toLowerCase() || '';
+    if (!contentType.includes('application/json')) {
+        throw new Error(
+            `Roomie API returned ${response.status} ${response.statusText || 'an invalid response'}. Please refresh and try again.`
+        );
+    }
+    return response.json() as Promise<T>;
+};
 
 export const assetPath = (path?: string | null) => {
     if (!path) return '';

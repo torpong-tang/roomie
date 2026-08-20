@@ -4,7 +4,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { isSameMonth } from 'date-fns';
 import { BarChart3, TrendingUp, Calendar as CalendarIcon, Users, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { apiFetch } from '@/lib/paths';
+import { apiFetch, readJson } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
 import { PlaceSelect, usePlaceScope } from '@/components/place-scope';
 import { useSession } from '@/components/session-provider';
@@ -46,8 +46,8 @@ export default function AnalyticsPage() {
                     apiFetch(`/api/bookings${suffix}`)
                 ]);
                 if (!roomsRes.ok || !bookingsRes.ok) throw new Error(t('insights.loadFailMessage'));
-                const roomsData = await roomsRes.json();
-                const bookingsData = await bookingsRes.json();
+                const roomsData = await readJson<Room[]>(roomsRes);
+                const bookingsData = await readJson<Booking[]>(bookingsRes);
                 setRooms(roomsData);
                 setBookings(bookingsData);
             });

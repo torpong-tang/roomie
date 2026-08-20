@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { apiFetch } from '@/lib/paths';
+import { apiFetch, readJson } from '@/lib/paths';
 
 export type SessionUser = {
     email: string;
@@ -34,7 +34,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const refresh = useCallback(async () => {
         try {
             const response = await apiFetch('/api/auth/me');
-            const data = await response.json();
+            const data = await readJson<{ user?: SessionUser | null }>(response);
             setUser(data.user ?? null);
         } catch {
             setUser(null);

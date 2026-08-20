@@ -5,7 +5,7 @@
 ```text
 GitHub: torpong-tang/roomie
           |
-          +-- Vercel frontend: roomie.vercel.app
+          +-- Vercel frontend: roomie-iota-beryl.vercel.app
           |      `-- /api/* rewrite to ------------------+
           |                                              |
           +-- Hostinger frontend: 2startup.cloud/roomie  |
@@ -79,5 +79,9 @@ leave broken image references.
 - Same-origin frontend proxies are preferred; cross-origin mode requires an exact
   CORS allowlist and credentialed requests.
 - State-changing API requests from unapproved origins are rejected by `src/proxy.ts`.
+- The API session cookie uses `Path=/` so it is returned through both the Vercel
+  `/api/*` rewrite and the Hostinger `/roomie/api/*` proxy.
+- `ROOMIE_CORS_ORIGINS` must contain every active Vercel production alias exactly;
+  adding a new Vercel project/domain requires updating this allowlist before login.
 - The frontend must never receive `DATABASE_URL`, `DIRECT_URL`, admin access codes or
   the auth signing secret.

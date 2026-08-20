@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Building2 } from 'lucide-react';
-import { apiFetch } from '@/lib/paths';
+import { apiFetch, readJson } from '@/lib/paths';
 import { useSession } from '@/components/session-provider';
 import { useTranslation } from '@/components/translation-provider';
 
@@ -29,7 +29,7 @@ export function usePlaceScope() {
         const load = async () => {
             try {
                 const response = await apiFetch('/api/places');
-                const data: Place[] = response.ok ? await response.json() : [];
+                const data = response.ok ? await readJson<Place[]>(response) : [];
                 if (cancelled) return;
                 setPlaces(data);
                 if (user.role === 'place' && user.placeId) {

@@ -2,9 +2,9 @@
 
 import { FormEvent, ReactNode, useState } from 'react';
 import { ArrowRight, CalendarCheck, Eye, EyeOff, Home, ShieldCheck, Users, X } from 'lucide-react';
-import { apiFetch, assetPath } from '@/lib/paths';
+import { apiFetch, assetPath, readJson } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
-import { useSession } from '@/components/session-provider';
+import { type SessionUser, useSession } from '@/components/session-provider';
 import { useTranslation } from '@/components/translation-provider';
 
 const REDIRECT_URL = 'https://2startup.cloud/';
@@ -47,8 +47,8 @@ export function AccessGate({ children }: AccessGateProps) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: normalizedEmail, accessCode: normalizedCode }),
                 });
-                const data = await response.json();
-                if (!response.ok) {
+                const data = await readJson<{ user?: SessionUser; error?: string }>(response);
+                if (!response.ok || !data.user) {
                     throw new Error(data.error || t('login.genericError'));
                 }
                 setUser(data.user);

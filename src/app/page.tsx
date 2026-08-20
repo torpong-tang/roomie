@@ -3,7 +3,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, subMonths, addMonths, getDay } from 'date-fns';
 import { Building2, ChevronLeft, ChevronRight, Clock, User, DoorOpen, Plus, Trash2, Eye, Phone, Save, X } from 'lucide-react';
-import { apiFetch, assetPath } from '@/lib/paths';
+import { apiFetch, assetPath, readJson } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
 import { PlaceSelect, usePlaceScope } from '@/components/place-scope';
 import { useSession } from '@/components/session-provider';
@@ -64,8 +64,8 @@ export default function CalendarPage() {
         apiFetch(`/api/bookings${suffix}`)
       ]);
       if (!roomsRes.ok || !bookingsRes.ok) throw new Error(t('calendar.loadFailMessage'));
-      const roomsData = await roomsRes.json();
-      const bookingsData = await bookingsRes.json();
+      const roomsData = await readJson<Room[]>(roomsRes);
+      const bookingsData = await readJson<Booking[]>(bookingsRes);
       setRooms(roomsData);
       setBookings(bookingsData);
     };
@@ -186,7 +186,7 @@ export default function CalendarPage() {
           })
         });
 
-        const data = await res.json();
+        const data = await readJson<{ error?: string }>(res);
         if (!res.ok) throw new Error(data.error || t('calendar.failedTitle'));
         await fetchData(selectedPlaceId, false);
       });
@@ -225,7 +225,7 @@ export default function CalendarPage() {
           method: 'DELETE'
         });
         if (!res.ok) {
-          const data = await res.json();
+          const data = await readJson<{ error?: string }>(res);
           throw new Error(data.error || t('calendar.cancelFailedTitle'));
         }
         await fetchData(selectedPlaceId, false);

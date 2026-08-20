@@ -12,6 +12,7 @@ type CookieSameSite = 'lax' | 'strict' | 'none';
 const cookiePath = () => {
     const configured = process.env.ROOMIE_COOKIE_PATH?.trim();
     if (configured) return configured.startsWith('/') ? configured : `/${configured}`;
+    if (process.env.ROOMIE_API_ONLY === '1') return '/';
     return basePath || '/';
 };
 

@@ -47,6 +47,18 @@ from Git.
 - Vercel: configure the variables from `.env.vercel.example`
 - VPS API: copy `.env.api.example`
 
+The VPS API profile must include:
+
+```env
+ROOMIE_API_ONLY=1
+ROOMIE_COOKIE_PATH=/
+ROOMIE_COOKIE_SAME_SITE=lax
+ROOMIE_CORS_ORIGINS="https://roomie-iota-beryl.vercel.app,https://2startup.cloud"
+```
+
+Keep the allowlist synchronized with the active Vercel production alias. Do not use
+`*` with credentialed requests.
+
 Generate independent high-entropy values for every production secret. Never reuse a
 local password, commit `.env`, or paste credentials into a deployment log.
 
@@ -112,6 +124,11 @@ Connect `torpong-tang/roomie` to one Vercel project and set only the variables i
 `.env.vercel.example`. Git integration should deploy automatically. Do not add
 production database or auth secrets to the frontend project.
 
+The current production frontend is `https://roomie-iota-beryl.vercel.app`. If the
+Vercel project is renamed or assigned another production domain, update
+`ROOMIE_CORS_ORIGINS` on the VPS API and restart only `roomie-api --update-env` before
+testing login.
+
 `npm run build` detects `VERCEL=1`, excludes the VPS-only Next API routes from the
 frontend artifact and its server-only Prisma/auth helper files, clears stale `.next`
 route types, skips Prisma generation and VPS standalone packaging, uses root path `/`,
@@ -138,6 +155,13 @@ Building Roomie frontend-only deployment for Vercel.
 
 The Vercel project must not define `DATABASE_URL`, `DIRECT_URL`,
 `ROOMIE_AUTH_SECRET`, `ROOMIE_ACCESS_CODE`, or upload-storage credentials.
+
+If the browser reports `Unexpected token '<'` while reading JSON, inspect the failing
+`/api/*` response. It means a redirect/error HTML page reached the frontend instead
+of the API JSON contract. Confirm the rewrite target, verify that `/api/health` and
+`/api/auth/me` return `application/json`, check the active Vercel alias in the CORS
+allowlist, and redeploy to clear stale rewrite metadata. Roomie API GET requests use
+`no-store` plus a revision query to avoid reusing legacy permanent redirects.
 
 ## 8. Release gate
 

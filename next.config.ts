@@ -22,6 +22,16 @@ const nextConfig: NextConfig = {
   // Vercel owns its server trace/output. Standalone packaging is only for the
   // VPS process started by PM2; enabling it on Vercel breaks onBuildComplete.
   ...(isVercel ? {} : { output: "standalone" as const }),
+  async headers() {
+    return [{
+      source: basePath ? `${basePath}/api/:path*` : "/api/:path*",
+      headers: [
+        { key: "Cache-Control", value: "private, no-store, max-age=0" },
+        { key: "Vary", value: "Cookie, Origin" },
+      ],
+      basePath: false,
+    }];
+  },
   async rewrites() {
     if (!apiProxyOrigin) return { beforeFiles: [], afterFiles: [], fallback: [] };
 

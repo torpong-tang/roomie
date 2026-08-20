@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { Building2, DoorOpen, Edit2, Plus, Save, Trash2, Upload, Users, X } from 'lucide-react';
-import { apiFetch, assetPath } from '@/lib/paths';
+import { apiFetch, assetPath, readJson } from '@/lib/paths';
 import { useFeedback } from '@/components/feedback-provider';
 import { useSession } from '@/components/session-provider';
 import { useTranslation } from '@/components/translation-provider';
@@ -40,7 +40,7 @@ export default function RoomsPage() {
 
     const fetchRooms = async () => {
         const response = await apiFetch('/api/rooms');
-        const data = await response.json();
+        const data = await readJson<Room[]>(response);
         if (response.ok) setRooms(data);
     };
 
@@ -50,7 +50,7 @@ export default function RoomsPage() {
             try {
                 await withLoading(t('rooms.loading'), async () => {
                     const [placesResponse] = await Promise.all([apiFetch('/api/places'), fetchRooms()]);
-                    const placesData = await placesResponse.json();
+                    const placesData = await readJson<Place[]>(placesResponse);
                     if (!placesResponse.ok) throw new Error(t('access.loadPlacesFail'));
                     setPlaces(placesData);
                 });
@@ -75,7 +75,7 @@ export default function RoomsPage() {
         const formData = new FormData();
         formData.append('file', image);
         const response = await apiFetch('/api/upload', { method: 'POST', body: formData });
-        const data = await response.json();
+        const data = await readJson<{ url?: string; error?: string }>(response);
         if (!response.ok) throw new Error(data.error || t('rooms.uploadFailMessage'));
         return data.url as string;
     };
@@ -92,7 +92,7 @@ export default function RoomsPage() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, capacity: Number(capacity), description, image: imageUrl, placeId }),
                 });
-                const data = await response.json();
+                const data = await readJson<{ error?: string }>(response);
                 if (!response.ok) throw new Error(data.error || t('rooms.createFailMessage'));
                 await fetchRooms();
             });
@@ -134,7 +134,7 @@ export default function RoomsPage() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: editName, capacity: Number(editCapacity), description: editDescription, placeId: editPlaceId }),
                 });
-                const data = await response.json();
+                const data = await readJson<{ error?: string }>(response);
                 if (!response.ok) throw new Error(data.error || t('rooms.updateFailMessage'));
                 await fetchRooms();
             });
@@ -162,7 +162,7 @@ export default function RoomsPage() {
         try {
             await withLoading(t('rooms.deletingRoom'), async () => {
                 const response = await apiFetch(`/api/rooms/${room.id}`, { method: 'DELETE' });
-                const data = await response.json();
+                const data = await readJson<{ error?: string }>(response);
                 if (!response.ok) throw new Error(data.error || t('rooms.deleteFailMessage'));
                 await fetchRooms();
             });
