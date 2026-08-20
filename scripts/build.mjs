@@ -36,6 +36,9 @@ if (existsSync(apiBackupDirectory) || existsSync(serverLibBackupDirectory)) {
 try {
   if (isVercelFrontendBuild) {
     console.log('Building Roomie frontend-only deployment for Vercel.');
+    // Vercel hosts this project at `/`; a stale project-level environment
+    // value must not make the client request `/roomie/*` assets or APIs.
+    process.env.NEXT_PUBLIC_BASE_PATH = '';
     // Vercel can restore .next from a previous full-stack build. Remove stale
     // route types before hiding the VPS-only API tree from the frontend build.
     rmSync(path.join(projectRoot, '.next'), { recursive: true, force: true });
