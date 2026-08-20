@@ -127,3 +127,16 @@ Before directing users to the pilot, verify:
 
 If any gate fails, remove the new frontend proxy/rewrite and keep the existing Roomie
 service active. Roll back only `roomie`/`roomie-api`; never restart unrelated processes.
+
+## 9. Automated backup and restore drill
+
+Production runs `/usr/local/sbin/backup-roomie` daily from
+`/etc/cron.d/roomie-backup`. Each snapshot is stored under
+`/var/backups/2startup/roomie`, contains a custom-format PostgreSQL dump, the
+persistent uploads directory and SHA-256 checksums, and is readable by root only.
+The default retention is 14 days.
+
+Verify the most recent snapshot and perform a restore drill after database schema or
+storage changes. Restore into a temporary database, compare `AppUser`, `Place`,
+`Room`, and `Booking` counts, validate the uploads archive with `tar -tzf`, then drop
+the temporary database. A backup is not considered valid until this drill succeeds.
