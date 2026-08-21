@@ -5,7 +5,7 @@
 ```text
 GitHub: torpong-tang/roomie
           |
-          +-- Vercel frontend: roomie-iota-beryl.vercel.app
+          +-- Vercel frontend: 2startup-roomie.vercel.app
           |      `-- /api/* rewrite to ------------------+
           |                                              |
           +-- Hostinger frontend: 2startup.cloud/roomie  |

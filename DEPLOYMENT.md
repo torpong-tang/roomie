@@ -53,11 +53,17 @@ The VPS API profile must include:
 ROOMIE_API_ONLY=1
 ROOMIE_COOKIE_PATH=/
 ROOMIE_COOKIE_SAME_SITE=lax
-ROOMIE_CORS_ORIGINS="https://roomie-iota-beryl.vercel.app,https://2startup.cloud"
+ROOMIE_CORS_ORIGINS="https://2startup-roomie.vercel.app,https://2startup.cloud"
 ```
 
 Keep the allowlist synchronized with the active Vercel production alias. Do not use
-`*` with credentialed requests.
+`*` with credentialed requests. An origin that is missing from this list fails with
+`403 {"error":"Origin is not allowed"}` on sign-in while `GET /api/health` still
+returns `200`, because browsers omit `Origin` on same-origin GET requests.
+
+During a domain cutover, add the new origin **before** switching and keep the retired
+one until the new frontend passes the release gate. Remove the retired origin in a
+separate step so a rollback never requires an API restart.
 
 Generate independent high-entropy values for every production secret. Never reuse a
 local password, commit `.env`, or paste credentials into a deployment log.
@@ -124,10 +130,13 @@ Connect `torpong-tang/roomie` to one Vercel project and set only the variables i
 `.env.vercel.example`. Git integration should deploy automatically. Do not add
 production database or auth secrets to the frontend project.
 
-The current production frontend is `https://roomie-iota-beryl.vercel.app`. If the
-Vercel project is renamed or assigned another production domain, update
+The current production frontend is `https://2startup-roomie.vercel.app`. The former
+alias `https://roomie-iota-beryl.vercel.app` is retired; see "Retire a Vercel alias"
+below. If the Vercel project is renamed or assigned another production domain, update
 `ROOMIE_CORS_ORIGINS` on the VPS API and restart only `roomie-api --update-env` before
-testing login.
+testing login. Changing the Vercel domain alone does not require a frontend redeploy:
+the rewrite target and base path are unchanged, and only the API allowlist decides
+whether sign-in succeeds.
 
 `npm run build` detects `VERCEL=1`, excludes the VPS-only Next API routes from the
 frontend artifact and its server-only Prisma/auth helper files, clears stale `.next`
@@ -142,7 +151,7 @@ it does not require a generated Prisma client. Prisma generation and standalone
 packaging remain mandatory for the VPS full-stack/API build.
 
 Do not connect this repository to duplicate Vercel projects. Keep the project whose
-production domain is `roomie-iota-beryl.vercel.app` after it passes the release gate,
+production domain is `2startup-roomie.vercel.app` after it passes the release gate,
 then disconnect any duplicate from Git only after confirming that it serves no
 production traffic.
 
@@ -162,6 +171,45 @@ of the API JSON contract. Confirm the rewrite target, verify that `/api/health` 
 `/api/auth/me` return `application/json`, check the active Vercel alias in the CORS
 allowlist, and redeploy to clear stale rewrite metadata. Roomie API GET requests use
 `no-store` plus a revision query to avoid reusing legacy permanent redirects.
+
+### Retire a Vercel alias
+
+Run this only after the new frontend passes the release gate. Sign-in breaks the
+moment an active origin leaves the allowlist, so the retired origin is removed in its
+own step.
+
+1. Confirm the new origin is accepted and the retired one is no longer in use:
+
+```bash
+for origin in https://2startup-roomie.vercel.app https://roomie-iota-beryl.vercel.app; do
+  printf '%s -> ' "$origin"
+  curl --silent --output /dev/null --write-out '%{http_code}\n' \
+    --request POST --header 'Content-Type: application/json' \
+    --header "Origin: $origin" --data '{"email":"probe@example.invalid","accessCode":"x"}' \
+    "$origin/api/auth/login"
+done
+```
+
+`401` means the origin reaches the sign-in logic and the probe credentials were
+rejected, which is the expected healthy result. `403` means the origin is blocked by
+the allowlist.
+
+2. Remove the retired origin from `ROOMIE_CORS_ORIGINS` in the API environment file,
+   then restart only the Roomie API:
+
+```bash
+pm2 restart roomie-api --update-env
+pm2 save
+```
+
+3. Re-run the probe. The retired origin must now return `403` and the production
+   origin must still return `401`.
+4. Remove the alias in the Vercel project so the retired hostname stops serving a
+   frontend that can no longer sign in. Do not delete the project itself while it
+   holds the production domain.
+
+`https://2startup.cloud/roomie` is unaffected by any of this. It reaches the same API
+through the Nginx `/roomie/api/` proxy and its origin entry never changes.
 
 ## 8. Release gate
 

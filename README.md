@@ -5,7 +5,7 @@ The same repository supports three deployment profiles:
 
 - local/full-stack at `http://localhost:3002/roomie`
 - Hostinger frontend at `https://2startup.cloud/roomie`
-- Vercel frontend at `https://roomie.vercel.app`
+- Vercel frontend at `https://2startup-roomie.vercel.app`
 
 The two production frontends use the same dedicated API, PostgreSQL database and
 persistent upload directory. See `ARCHITECTURE.md` and `DEPLOYMENT.md` before changing
