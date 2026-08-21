@@ -1,5 +1,17 @@
 # Roomie Architecture
 
+> **Roomie ใช้รูปแบบรุ่นก่อน — อย่าลอกไปทำแอปใหม่**
+>
+> การแยก frontend/API ของ Roomie ทำด้วย `scripts/build.mjs` ที่ **ย้ายไฟล์เข้าออกจาก
+> source tree จริง ๆ ระหว่าง build** (ย้าย `src/app/api` และ server lib ออกไป แล้วย้ายกลับ
+> ใน `finally`) วิธีนี้ใช้งานได้และไม่คุ้มที่จะรื้อ แต่มีข้อเสียสองอย่าง: build ที่ถูกขัดจังหวะ
+> จะทิ้ง source tree ไว้ครึ่ง ๆ กลาง ๆ และ commit เดียวให้ artifact สองแบบ
+>
+> **SmartProject ทำเรื่องเดียวกันด้วยตัวแปรสภาพแวดล้อม** โดยไม่แตะไฟล์เลย — หน้าเว็บเรียก
+> `requireActor()` ตัวเดิม ซึ่งตัดสินใจเองว่าจะคุย Prisma หรือคุย API build ชุดเดียวจึงรันได้
+> ทั้งสองที่ ดู `ARCHITECTURE.md` ของ `2startup-landing` หัวข้อ Two generations
+> และใช้ SmartProject เป็นต้นแบบ
+
 ## Pilot topology
 
 ```text
