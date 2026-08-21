@@ -100,6 +100,52 @@ other apps. Verify locally before enabling public routing:
 curl --fail --silent http://127.0.0.1:3102/api/health
 ```
 
+### Where the API reads its environment
+
+Three copies of the same values exist, and they can drift:
+
+```text
+/var/www/apps/roomie-api/.env                    source of truth, edited by hand
+/var/www/apps/roomie-api/.next/standalone/.env   what the running process loads
+PM2's saved process environment                  overrides both
+```
+
+The standalone `server.js` calls `process.chdir(__dirname)`, so it loads `.env` from
+the standalone directory, not from the checkout root. `next build` copies the root
+`.env` into the standalone output, which keeps the two in step as long as every change
+is made in the root file and followed by a build.
+
+PM2 is the part that surprises. Values already present in `process.env` are never
+overwritten by the env file, and `pm2 restart --update-env` refreshes them from the
+shell that runs the command, not from any file. Editing an env file and restarting
+therefore appears to succeed while the process keeps serving the old value.
+
+Change an environment value like this:
+
+```bash
+cd /var/www/apps/roomie-api
+# edit .env, then propagate it to the standalone copy
+cp -p .env .next/standalone/.env
+chmod 600 .next/standalone/.env
+set -a && . ./.next/standalone/.env && set +a
+PORT=3102 HOSTNAME=127.0.0.1 pm2 restart roomie-api --update-env
+pm2 save
+```
+
+Confirm the running process actually took the value, rather than trusting the file:
+
+```bash
+tr '\0' '\n' < /proc/$(pm2 pid roomie-api)/environ | grep '^ROOMIE_CORS_ORIGINS='
+```
+
+Back the env files up outside `.next/` before any build, because a failed build can
+leave the standalone directory incomplete:
+
+```bash
+install -d -m 0700 /root/roomie-env-backup
+cp -p .next/standalone/.env /root/roomie-env-backup/roomie-api.env.$(date -u +%Y%m%dT%H%M%SZ)
+```
+
 ## 6. Nginx routing
 
 The existing `2startup.cloud` server proxies only to `127.0.0.1:3102`. Place this
