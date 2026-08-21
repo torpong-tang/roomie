@@ -177,8 +177,9 @@ Connect `torpong-tang/roomie` to one Vercel project and set only the variables i
 production database or auth secrets to the frontend project.
 
 The current production frontend is `https://2startup-roomie.vercel.app`. The former
-alias `https://roomie-iota-beryl.vercel.app` is retired; see "Retire a Vercel alias"
-below. If the Vercel project is renamed or assigned another production domain, update
+alias `https://roomie-iota-beryl.vercel.app` was retired on 2026-08-21: it is out of
+`ROOMIE_CORS_ORIGINS` and no longer resolves to a deployment. Use "Retire a Vercel
+alias" below for the next one. If the Vercel project is renamed or assigned another production domain, update
 `ROOMIE_CORS_ORIGINS` on the VPS API and restart only `roomie-api --update-env` before
 testing login. Changing the Vercel domain alone does not require a frontend redeploy:
 the rewrite target and base path are unchanged, and only the API allowlist decides
@@ -227,7 +228,7 @@ own step.
 1. Confirm the new origin is accepted and the retired one is no longer in use:
 
 ```bash
-for origin in https://2startup-roomie.vercel.app https://roomie-iota-beryl.vercel.app; do
+for origin in https://2startup-roomie.vercel.app https://<retired-alias>.vercel.app; do
   printf '%s -> ' "$origin"
   curl --silent --output /dev/null --write-out '%{http_code}\n' \
     --request POST --header 'Content-Type: application/json' \
